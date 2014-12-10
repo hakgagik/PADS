@@ -1,0 +1,1 @@
+PADS (Parallel Alkane Dislocation Simulator) is a massivley parallelized solution for optimizing alkane supercells, with dislocations held closely in mind.
