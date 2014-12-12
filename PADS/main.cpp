@@ -1,5 +1,6 @@
 #include "supercell.h"	
 #include <iomanip>
+#include "cudaTest.cuh"
 
 using namespace std;
 
@@ -16,5 +17,5 @@ void main() {
 	//	}
 	//}
 
-	cout << superCell.nMols * superCell.mols[0].nBeads * 3 * sizeof(double) << endl;
+	cout << cuMain() << endl;
 }

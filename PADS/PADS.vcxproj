@@ -25,6 +25,12 @@
   <ItemGroup>
     <ClInclude Include="supercell.h" />
   </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="cudaTest.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cudaTest.cuh" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{3EB74D50-8265-45D4-BCEF-E5ACCD6E9828}</ProjectGuid>
     <RootNamespace>PADS</RootNamespace>
