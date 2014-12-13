@@ -23,10 +23,12 @@
     <ClCompile Include="supercell.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="deviceVector.cuh" />
     <ClInclude Include="supercell.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="cudaTest.cu" />
+    <CudaCompile Include="deviceVector.cu" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cudaTest.cuh" />
