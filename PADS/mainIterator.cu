@@ -22,7 +22,7 @@ __global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, 
 	cy[threadIdx.x] = y[i];
 	cz[threadIdx.x] = z[i];
 
-	__synchtreads();
+	__syncthreads();
 
 	// Do a parallel reduction to find the sum of all the positions.
 	while (level < nBeads){
@@ -76,7 +76,7 @@ int cuMainLoop(supercell &superCell){
 	cudaMemcpy(&dy, &y, nMols * nBeads * sizeof(double), cudaMemcpyHostToDevice);
 	cudaMemcpy(&dz, &z, nMols * nBeads * sizeof(double), cudaMemcpyHostToDevice);
 
-	getCentroids<<<nMols, nBeads, 3 * nbeads * sizeof(double)>>>(dx, dy, dz, dcentroidsx, dcentroidsy, dcentroidsz, nBeads);
+	getCentroids<<<nMols, nBeads, 3 * nBeads * sizeof(double)>>>(dx, dy, dz, dcentroidsx, dcentroidsy, dcentroidsz, nBeads);
 
 	double *eCentroidsx = (double *)malloc(sizeof(double)*nMols);
 	double *eCentroidsy = (double *)malloc(sizeof(double)*nMols);
