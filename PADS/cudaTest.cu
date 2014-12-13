@@ -2,16 +2,16 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
-#include <armadillo>
 #include <cstdio>
+#include "deviceVector.cuh"
 
-__global__ void armaTest(double *e){
-	arma::mat a(3, 3);
-	arma::mat b(3, 3);
-	a.fill(3);
-	b.fill(3);
-	arma::mat c = a * b;
-	*e = c(1, 1);
+__global__ void dvecTest(double *e){
+	double a[] = { 1.0, 2.0, 3.0 };
+	int nElem = 3;
+
+	dvec v(a, nElem);
+	v += v;
+	*e = v[1];
 }
 
 int cuMain() {
@@ -22,6 +22,9 @@ int cuMain() {
 	double *he = (double *)malloc(sizeof(double));
 	double *de;
 	cudaMalloc(&de, sizeof(double));
+
+	dvecTest<<<1, 1>>>(de);
+
 	cudaMemcpy(he, de, sizeof(double), cudaMemcpyDeviceToHost);
 
 	std::cout << *he << std::endl;
