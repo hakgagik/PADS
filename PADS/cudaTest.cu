@@ -3,6 +3,8 @@
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <cstdio>
+//#include "deviceVector.cuh"
+//
 
 class Foo {
 private:
@@ -14,13 +16,19 @@ public:
 };
 
 __global__ void dvecTest(double *e){
+
 	Foo f;
-	e[0] = f.bar();
+	*e = f.bar();
+	//double *a;
+	//*a = 1;
+	//dvec v(a, 1);
+	//*e = v[0];
 }
+
+
 
 int cuMain() {
 	int n;
-	cudaGetDevice(&n);
 
 	double *he = (double *)malloc(sizeof(double));
 	double *de;

@@ -11,23 +11,23 @@ public:
 
 	__inline__ __device__ double operator[](const int i1);
 	__inline__ __device__ void operator+=(dvec v1);
-	__inline__ __device__ void operator-=(dvec v1);
-	__inline__ __device__ void operator*=(dvec v1);
-	__inline__ __device__ void operator/=(dvec v1);
-	__inline__ __device__ void operator+=(double s1);
-	__inline__ __device__ void operator-=(double s1);
-	__inline__ __device__ void operator*=(double s1);
-	__inline__ __device__ void operator/=(double s1);
-	__inline__ __device__ void operator++();
-	__inline__ __device__ void operator--();
+	//__inline__ __device__ void operator-=(dvec v1);
+	//__inline__ __device__ void operator*=(dvec v1);
+	//__inline__ __device__ void operator/=(dvec v1);
+	//__inline__ __device__ void operator+=(double s1);
+	//__inline__ __device__ void operator-=(double s1);
+	//__inline__ __device__ void operator*=(double s1);
+	//__inline__ __device__ void operator/=(double s1);
+	//__inline__ __device__ void operator++();
+	//__inline__ __device__ void operator--();
 
-	__inline__ __device__ double dot(dvec v1);
-	__inline__ __device__ double cross(dvec v1);
-	__inline__ __device__ double norm();
-	__inline__ __device__ double sum();
+	//__inline__ __device__ double dot(dvec v1);
+	//__inline__ __device__ double cross(dvec v1);
+	//__inline__ __device__ double norm();
+	//__inline__ __device__ double sum();
 
-	__device__ dvec clone();
-	__device__ double* toArray();
+	//__device__ dvec clone();
+	//__device__ double* toArray();
 
 	int n_elem;
 private:
@@ -66,14 +66,14 @@ __inline__ __device__ void dvec::operator+=(dvec v1){
 		v[i] += v1.v[i];
 	}
 }
-__inline__ __device__ void dvec::operator-=(dvec v1){
-#ifdef DVEC_BOUNDS_CHECK
-	if (v1.n_elem != n_elem) { return; }
-#endif
-	for (int i = 0; i < n_elem; i++){
-		v[i] -= v1.v[i];
-	}
-}
+//__inline__ __device__ void dvec::operator-=(dvec v1){
+//#ifdef DVEC_BOUNDS_CHECK
+//	if (v1.n_elem != n_elem) { return; }
+//#endif
+//	for (int i = 0; i < n_elem; i++){
+//		v[i] -= v1.v[i];
+//	}
+//}
 //__inline__ __device__ void dvec::operator*=(dvec v1){}
 //__inline__ __device__ void dvec::operator/=(dvec v1){}
 //__inline__ __device__ void dvec::operator+=(double s1){}
