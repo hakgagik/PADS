@@ -44,6 +44,7 @@ __global__ void getVerletLisT(int*verletList, int*verletListStart, int*verletLis
 
 int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
+	cudaSetDevice(1);
 	double *dx, *dy, *dz;
 
 	double *dcentroidsx, *dcentroidsy, *dcentroidsz;
