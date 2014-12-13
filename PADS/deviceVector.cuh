@@ -1,6 +1,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
+#include <math.h>
 
 
 class dvec{
@@ -11,23 +12,21 @@ public:
 
 	__inline__ __device__ double operator[](const int i1);
 	__inline__ __device__ void operator+=(dvec v1);
-	//__inline__ __device__ void operator-=(dvec v1);
-	//__inline__ __device__ void operator*=(dvec v1);
-	//__inline__ __device__ void operator/=(dvec v1);
-	//__inline__ __device__ void operator+=(double s1);
-	//__inline__ __device__ void operator-=(double s1);
-	//__inline__ __device__ void operator*=(double s1);
-	//__inline__ __device__ void operator/=(double s1);
-	//__inline__ __device__ void operator++();
-	//__inline__ __device__ void operator--();
+	__inline__ __device__ void operator-=(dvec v1);
+	__inline__ __device__ void operator*=(dvec v1);
+	__inline__ __device__ void operator/=(dvec v1);
+	__inline__ __device__ void operator+=(double s1);
+	__inline__ __device__ void operator-=(double s1);
+	__inline__ __device__ void operator*=(double s1);
+	__inline__ __device__ void operator/=(double s1);
 
-	//__inline__ __device__ double dot(dvec v1);
-	//__inline__ __device__ double cross(dvec v1);
-	//__inline__ __device__ double norm();
-	//__inline__ __device__ double sum();
+	__inline__ __device__ double dot(dvec v1);
+	__inline__ __device__ double cross(dvec v1);
+	__inline__ __device__ double norm();
+	__inline__ __device__ double sum();
 
-	//__device__ dvec clone();
-	//__device__ double* toArray();
+	__device__ dvec clone();
+	__device__ double* toArray();
 
 	int n_elem;
 private:
@@ -45,9 +44,10 @@ __inline__ __device__ dvec::dvec(double *a, int nElem){
 		v[i] = a[i];
 	}
 	n_elem = nElem;
+	float2 blah;
 }
 
-__device__ dvec::dvec(){
+__device__ dvec::~dvec(){
 	delete v;
 }
 
@@ -66,27 +66,69 @@ __inline__ __device__ void dvec::operator+=(dvec v1){
 		v[i] += v1.v[i];
 	}
 }
-//__inline__ __device__ void dvec::operator-=(dvec v1){
-//#ifdef DVEC_BOUNDS_CHECK
-//	if (v1.n_elem != n_elem) { return; }
-//#endif
-//	for (int i = 0; i < n_elem; i++){
-//		v[i] -= v1.v[i];
-//	}
-//}
-//__inline__ __device__ void dvec::operator*=(dvec v1){}
-//__inline__ __device__ void dvec::operator/=(dvec v1){}
-//__inline__ __device__ void dvec::operator+=(double s1){}
-//__inline__ __device__ void dvec::operator-=(double s1){}
-//__inline__ __device__ void dvec::operator*=(double s1){}
-//__inline__ __device__ void dvec::operator/=(double s1){}
-//__inline__ __device__ void dvec::operator++(){}
-//__inline__ __device__ void dvec::operator--(){}
-//
-//__inline__ __device__ double dot(dvec v1){}
-//__inline__ __device__ double cross(dvec v1){}
-//__inline__ __device__ double norm(){}
-//__inline__ __device__ double sum(){}
+__inline__ __device__ void dvec::operator-=(dvec v1){
+#ifdef DVEC_BOUNDS_CHECK
+	if (v1.n_elem != n_elem) { return; }
+#endif
+	for (int i = 0; i < n_elem; i++){
+		v[i] -= v1.v[i];
+	}
+}
+__inline__ __device__ void dvec::operator*=(dvec v1){
+#ifdef DVEC_BOUNDS_CHECK
+	if (v1.n_elem != n_elem) { return; }
+#endif
+	for (int i = 0; i < n_elem; i++){
+		v[i] *= v1.v[i];
+	}
+}
+__inline__ __device__ void dvec::operator/=(dvec v1){
+#ifdef DVEC_BOUNDS_CHECK
+	if (v1.n_elem != n_elem) { return; }
+#endif
+	for (int i = 0; i < n_elem; i++){
+		v[i] /= v1.v[i];
+	}
+}
+__inline__ __device__ void dvec::operator+=(double s1){
+	for (int i = 0; i < n_elem; i++){
+		v[i] += s1;
+	}
+}
+__inline__ __device__ void dvec::operator-=(double s1){
+	for (int i = 0; i < n_elem; i++){
+		v[i] -= s1;
+	}
+}
+__inline__ __device__ void dvec::operator*=(double s1){
+	for (int i = 0; i < n_elem; i++){
+		v[i] *= s1;
+	}
+}
+__inline__ __device__ void dvec::operator/=(double s1){
+	for (int i = 0; i < n_elem; i++){
+		v[i] *= s1;
+	}
+}
 
-//__device__ dvec clone();
-//__device__ double* toArray();
+__inline__ __device__ double dvec::dot(dvec v1){
+#ifdef DVEC_BOUNDS_CHECK
+	if (v1.n_elem != n_elem) { return; }
+#endif
+	double d = 0;
+	for (int i = 0; i < n_elem; i++){
+		d += v[i];
+	}
+	return d;
+}
+__inline__ __device__ double dvec::cross(dvec v1){}
+__inline__ __device__ double dvec::norm(){
+	double d = 0;
+	for (int i = 0; i < n_elem; i++){
+		d += v[i] * v[i];
+	}
+}
+__inline__ __device__ double dvec::sum(){}
+
+__device__ dvec clone();
+__device__ double* toArray();
