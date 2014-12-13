@@ -2,6 +2,7 @@
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <math.h>
+#include "mainIterator.cuh"
 
 // Each molecule computes its own centroid and puts it into dcentroids
 // This is done via a parallel reduction algorithm that calculates a sum of n elements in O(log(n)) time.
@@ -41,7 +42,16 @@ __global__ void getVerletLisT(int*verletList, int*verletListStart, int*verletLis
 }
 
 
-int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
+int cuMainLoop(supercell &superCell){
+	int nMols = superCell.nMols;
+	int nBeads = superCell.mols[0].nBeads;
+	double *x, *y, *z;
+	x = new double[nMols * nBeads];
+	y = new double[nMols * nBeads];
+	z = new double[nMols * nBeads];
+
+	superCell.toArray(x, y, z);
+
 	double *dx, *dy, *dz;
 
 	double *dcentroidsx, *dcentroidsy, *dcentroidsz;
@@ -56,7 +66,7 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
 	cudaMalloc(&dcentroidsx, sizeof(double)*nMols);
 	cudaMalloc(&dcentroidsy, sizeof(double)*nMols);
-	cudaMalloc(&dcentroidsy, sizeof(double)*nMols);
+	cudaMalloc(&dcentroidsz, sizeof(double)*nMols);
 
 	cudaMalloc(&dx, sizeof(double) * nBeads * nMols);
 	cudaMalloc(&dy, sizeof(double) * nBeads * nMols);
@@ -75,4 +85,5 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	cudaMemcpy(&eCentroidsx, &dcentroidsx, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
 	cudaMemcpy(&eCentroidsy, &dcentroidsy, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
 	cudaMemcpy(&eCentroidsz, &dcentroidsz, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
+	return EXIT_SUCCESS;
 }

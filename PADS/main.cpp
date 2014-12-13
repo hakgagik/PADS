@@ -1,19 +1,15 @@
 #include "supercell.h"	
 #include <iomanip>
-#include "cudaTest.cuh"
+#include "mainIterator.cuh"
+
 
 using namespace std;
 
 void main() {
 	supercell superCell(8, "test.mol2");
-	int nMols = superCell.nMols;
-	int nBeads = superCell.mols[0].nBeads;
-	double *x, *y, *z;
-	x = new double[nMols * nBeads];
-	y = new double[nMols * nBeads];
-	z = new double[nMols * nBeads];
 
-	superCell.toArray(x, y, z);
+	cuMainLoop(superCell);
+
 	//ofstream testOut("testOut.dat");
 
 	//for (int i = 0; i < superCell.nMols; i++) {

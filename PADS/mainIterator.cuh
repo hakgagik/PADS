@@ -1,1 +1,2 @@
-int cuMainLoop(double *x, double *y, double *z);
+#include "supercell.h"
+int cuMainLoop(supercell superCell);

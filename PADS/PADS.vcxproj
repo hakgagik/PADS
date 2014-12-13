@@ -24,10 +24,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="deviceVector.cuh" />
+    <ClInclude Include="mainIterator.cuh" />
     <ClInclude Include="supercell.h" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="cudaTest.cu" />
+    <CudaCompile Include="mainIterator.cu" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cudaTest.cuh" />
@@ -82,9 +84,13 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(CUDA_INC_PATH);</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(CUDA_INC_PATH);</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

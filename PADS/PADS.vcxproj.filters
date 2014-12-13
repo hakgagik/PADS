@@ -30,9 +30,15 @@
     <ClInclude Include="deviceVector.cuh">
       <Filter>cuda Headers</Filter>
     </ClInclude>
+    <ClInclude Include="mainIterator.cuh">
+      <Filter>cuda Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="cudaTest.cu">
+      <Filter>cuda Files</Filter>
+    </CudaCompile>
+    <CudaCompile Include="mainIterator.cu">
       <Filter>cuda Files</Filter>
     </CudaCompile>
   </ItemGroup>
