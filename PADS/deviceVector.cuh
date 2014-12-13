@@ -3,12 +3,14 @@
 #include <device_launch_parameters.h>
 #include <math.h>
 
+#define DVEC_BOUNDS_CHECK
+
 
 class dvec{
 public:
-	__device__ dvec();
-	__device__ dvec(double *a, int nElem);
-	__device__ ~dvec();
+	__inline__ __device__ dvec();
+	__inline__ __device__ dvec(double *a, int nElem);
+	__inline__ __device__ ~dvec();
 
 	__inline__ __device__ double operator[](const int i1);
 	__inline__ __device__ void operator+=(dvec v1);
@@ -25,18 +27,13 @@ public:
 	__inline__ __device__ double norm();
 	__inline__ __device__ double sum();
 
-	__device__ dvec clone();
-	__device__ double* toArray();
+	__inline__ __device__ dvec clone();
+	__inline__ __device__ double* toArray();
 
 	int n_elem;
 private:
 	double* v;
 };
-
-#define DVEC_BOUNDS_CHECK
-#ifdef DVEC_BOUNDS_CHECK
-#include <typeinfo>
-#endif
 
 __inline__ __device__ dvec::dvec(double *a, int nElem){
 	v = new double[nElem];
@@ -46,7 +43,7 @@ __inline__ __device__ dvec::dvec(double *a, int nElem){
 	n_elem = nElem;
 }
 
-__device__ dvec::~dvec(){
+__inline__ __device__ dvec::~dvec(){
 	delete v;
 }
 
@@ -137,11 +134,11 @@ __inline__ __device__ double dvec::sum(){
 	return d;
 }
 
-__device__ dvec dvec::clone() {
+__inline__ __device__ dvec dvec::clone() {
 	dvec a(v, n_elem);
 	return a;
 };
-__device__ double* dvec::toArray() {
+__inline__ __device__ double* dvec::toArray() {
 	double* a = new double[n_elem];
 	for (int i = 0; i < n_elem; i++){
 		a[i] = v[i];

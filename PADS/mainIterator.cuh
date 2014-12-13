@@ -1,0 +1,1 @@
+int cuMainLoop(double *x, double *y, double *z);

@@ -30,6 +30,8 @@ public:
 	supercell();
 	supercell(int nC, std::string infile);
 
+	void toArray(double *x, double *y, double *z);
+
 	int nMols;
 	molecule* mols;
 };
