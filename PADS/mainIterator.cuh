@@ -1,2 +1,1 @@
-#include "supercell.h"
-int cuMainLoop(supercell superCell);
+int cuMainLoop(double *x, double *y, double *z, int nBeads, int nMols);

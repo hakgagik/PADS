@@ -42,15 +42,7 @@ __global__ void getVerletLisT(int*verletList, int*verletListStart, int*verletLis
 }
 
 
-int cuMainLoop(supercell &superCell){
-	int nMols = superCell.nMols;
-	int nBeads = superCell.mols[0].nBeads;
-	double *x, *y, *z;
-	x = new double[nMols * nBeads];
-	y = new double[nMols * nBeads];
-	z = new double[nMols * nBeads];
-
-	superCell.toArray(x, y, z);
+int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
 	double *dx, *dy, *dz;
 
