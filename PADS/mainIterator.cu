@@ -33,7 +33,13 @@ __global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, 
 		}
 		level *= 2;
 	}
-};
+	// Thread 0 then copies its own cx cy and cz back into global memory.
+	if (threadIdx.x == 0){
+		dcentroidsx[blockIdx.x] = cx[0];
+		dcentroidsy[blockIdx.x] = cy[0];
+		dcentroidsz[blockIdx.x] = cz[0];
+	}
+}
 
 // Each thread block contains nBeads threads. There are nMols thread blocks. Therefore, each molecule is its own thread block.
 // We begin by generating the Verlet list. To do this, each molecule copies 
