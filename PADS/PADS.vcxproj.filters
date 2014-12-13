@@ -27,15 +27,9 @@
     <ClInclude Include="supercell.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="deviceVector.cuh">
-      <Filter>cuda Headers</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="cudaTest.cu">
-      <Filter>cuda Files</Filter>
-    </CudaCompile>
-    <CudaCompile Include="deviceVector.cu">
       <Filter>cuda Files</Filter>
     </CudaCompile>
   </ItemGroup>

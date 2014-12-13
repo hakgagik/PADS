@@ -5,7 +5,7 @@
 using namespace std;
 
 void main() {
-	supercell superCell(8, "test.mol2");
+	//supercell superCell(8, "test.mol2");
 	//ofstream testOut("testOut.dat");
 
 	//for (int i = 0; i < superCell.nMols; i++) {
