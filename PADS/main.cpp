@@ -1,9 +1,9 @@
 #include "supercell.h"	
-#include <iomanip>
 #include "mainIterator.cuh"
-#include <fstream>
+#include <iostream>
 
 using namespace std;
+
 
 void main() {
 	supercell superCell(8, "test.mol2");
