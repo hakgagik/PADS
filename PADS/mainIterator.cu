@@ -3,6 +3,9 @@
 #include <device_launch_parameters.h>
 #include <math.h>
 #include "mainIterator.cuh"
+#include <iostream>
+#include <fstream>
+#include <iomanip>
 
 // Each molecule computes its own centroid and puts it into dcentroids
 // This is done via a parallel reduction algorithm that calculates a sum of n elements in O(log(n)) time.
@@ -50,7 +53,7 @@ __global__ void getVerletLisT(int*verletList, int*verletListStart, int*verletLis
 
 
 int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
-
+	
 	cudaSetDevice(1);
 	double *dx, *dy, *dz;
 
@@ -85,5 +88,15 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	cudaMemcpy(eCentroidsx, dcentroidsx, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
 	cudaMemcpy(eCentroidsy, dcentroidsy, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
 	cudaMemcpy(eCentroidsz, dcentroidsz, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
+
+	using namespace std;
+	ofstream output("centroids.dat");
+
+	for (int i = 0; i < nMols; i++){
+		output << setw(15) << eCentroidsx[i]
+			<< setw(15) << eCentroidsy[i]
+			<< setw(15) << eCentroidsz[i] << endl;
+	}
+
 	return EXIT_SUCCESS;
 }

@@ -1,7 +1,7 @@
 #include "supercell.h"	
 #include <iomanip>
 #include "mainIterator.cuh"
-
+#include <fstream>
 
 using namespace std;
 
@@ -28,6 +28,5 @@ void main() {
 	//			<< endl;
 	//	}
 	//}
-
 	//cout << cuMain() << endl;
 }
