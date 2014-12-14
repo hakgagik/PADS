@@ -3,6 +3,7 @@
 #include <device_launch_parameters.h>
 #include <math.h>
 #include "mainIterator.cuh"
+#include <iostream>
 
 // Each thread block contains nBeads threads. There are nMols thread blocks. Therefore, each molecule is its own thread block.
 // Each molecule computes its own centroid and puts it into dcentroids
@@ -72,6 +73,7 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, int verletStri
 			}
 		}
 	}
+	verletList[idx] = verletStride * idx + verletCount;
 }
 
 
@@ -104,6 +106,14 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	cudaMalloc(&verletListEnd, sizeof(int) * nMols);
 
 	getVerletList<<<nMols,1>>>(verletList, verletListEnd, verletStride, nMols, dcentroidsx, dcentroidsy, dcentroidsz, 12.0);
+
+	int *eVerletList = new int[nMols*verletStride];
+	cudaMemcpy(eVerletList, verletList, nMols*verletStride*sizeof(int), cudaMemcpyDeviceToHost);
+
+
+	for (int i = 0; i < nMols*verletStride; i++){
+		std::cout << verletList[i] << std::endl;
+	}
 
 	return EXIT_SUCCESS;
 }
