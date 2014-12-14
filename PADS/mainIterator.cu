@@ -58,6 +58,7 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, int verletStri
 	c[0] = xCentroids[idx];
 	c[1] = yCentroids[idx];
 	c[2] = zCentroids[idx];
+	double ctf = cutoff;
 
 	int verletCount = 0;
 	for (int i = 0; i < nMols; i++){
@@ -67,7 +68,7 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, int verletStri
 			dx[1] = yCentroids[j] - c[1];
 			dx[2] = zCentroids[j] - c[2];
 			dist = sqrt(dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2]);
-			if (dist < cutoff){
+			if (dist < ctf){
 				verletCount++;
 				verletList[verletStride * idx + verletCount] = j;
 			}
@@ -109,11 +110,6 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
 	int *eVerletList = new int[nMols*verletStride];
 	cudaMemcpy(eVerletList, verletList, nMols*verletStride*sizeof(int), cudaMemcpyDeviceToHost);
-
-
-	for (int i = 0; i < nMols*verletStride; i++){
-		std::cout << verletList[i] << std::endl;
-	}
 
 	return EXIT_SUCCESS;
 }
