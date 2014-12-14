@@ -4,7 +4,8 @@
 #include <math.h>
 #include "mainIterator.cuh"
 #include <iostream>
-
+#include <fstream>
+#include <iomanip>
 
 // Each thread block contains nBeads threads. There are nMols thread blocks. Therefore, each molecule is its own thread block.
 // Each molecule computes its own centroid and puts it into dcentroids
@@ -50,34 +51,39 @@ __global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, 
 // Now, each thread block has only one thread (representing one molecule). Each thread block will calculate its own verlet cell.
 // This and the centroid calculation happen once every *very many* iterations because the verlet list is not very likely to change
 // and centroids are only used to calculate the verlet list.
+
 __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentroids, double*yCentroids, double*zCentroids, double *cutoff, int *verletStride, int *nMols){
 	// Copy own centroid into local memory
-	double ctf = *cutoff;
-	int mols = *nMols;
-	int stride = *verletStride;
+	double ctfsq = cutoff[0];
+	ctfsq *= ctfsq;
+	int mols = nMols[0];
+	int stride = verletStride[0];
 	int idx = blockIdx.x;
 	double c[3];
 	double dx[3];
-	double dist;
 	c[0] = xCentroids[idx];
 	c[1] = yCentroids[idx];
 	c[2] = zCentroids[idx];
 
-	int verletCount = 0;
+	int verletCount = -1;
 	for (int i = 0; i < mols; i++){
 		int j = i % mols;
 		if (j != idx){
 			dx[0] = xCentroids[j] - c[0];
 			dx[1] = yCentroids[j] - c[1];
 			dx[2] = zCentroids[j] - c[2];
-			dist = sqrt(dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2]);
-			if (dist < ctf){
+			if (dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2] < ctfsq){
 				verletCount++;
 				verletList[stride * idx + verletCount] = j;
 			}
 		}
 	}
-	verletList[idx] = stride * idx + verletCount;
+	if (verletCount >0){
+		verletListEnd[idx] = stride * idx + verletCount;
+	}
+	else {
+		verletListEnd[idx] = -1;
+	}
 }
 
 
@@ -128,16 +134,28 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
 	int* verletList;
 	int* verletListEnd;
-	int verletStride = 100;
 
 
-	cudaMalloc(&verletList, sizeof(int) * nMols * verletStride);
+	cudaMalloc(&verletList, sizeof(int) * nMols * (*everletStride));
 	cudaMalloc(&verletListEnd, sizeof(int) * nMols);
 
 	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, dcutoff, dverletStride, dmols);
 
-	int *eVerletList = new int[nMols*verletStride];
-	cudaMemcpy(eVerletList, verletList, nMols*verletStride*sizeof(int), cudaMemcpyDeviceToHost);
+	int *eVerletList = new int[nMols* *everletStride];
+	int *eVerletListEnd = new int[nMols];
+	cudaMemcpy(eVerletList, verletList, nMols* *everletStride * sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(eVerletListEnd, verletListEnd, sizeof(int)*nMols, cudaMemcpyDeviceToHost);
+
+	std::ofstream verletOut("verlet.dat");
+	std::ofstream verletEndOut("verletEnd.dat");
+
+	for (int i = 0; i < nMols; i++){
+		for (int j = 0; j < 100; j++){
+			verletOut << std::setw(15) << eVerletList[i * 100 + j];
+		}
+		verletOut << std::endl;
+		verletEndOut << std::setw(15) << eVerletListEnd[i] << std::endl;
+	}
 
 	return EXIT_SUCCESS;
 }
