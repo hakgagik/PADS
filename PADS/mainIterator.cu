@@ -53,7 +53,7 @@ __global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, 
 // and centroids are only used to calculate the verlet list.
 
 __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentroids, double*yCentroids, double*zCentroids, double cutoff, int verletStride, int nMols){
-	// Copy own centroid into local memory
+	// Copy own centroid into local memory and make local copies of all the parameters.
 	double ctfsq = cutoff;
 	ctfsq *= ctfsq;
 	int mols = nMols;
@@ -65,6 +65,7 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentro
 	c[1] = yCentroids[idx];
 	c[2] = zCentroids[idx];
 
+	// Iterate forward, with 
 	int verletCount = -1;
 	for (int i = 1; i < mols; i++){
 		int j = (i + idx) % mols;
@@ -83,6 +84,8 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentro
 		verletListEnd[idx] = -1;
 	}
 }
+
+__global__ void MDStep(double *x, double *y, double *z, )
 
 
 int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
