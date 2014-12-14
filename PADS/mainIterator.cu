@@ -66,16 +66,14 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentro
 	c[2] = zCentroids[idx];
 
 	int verletCount = -1;
-	for (int i = 0; i < mols; i++){
-		int j = i % mols;
-		if (j != idx){
-			dx[0] = xCentroids[j] - c[0];
-			dx[1] = yCentroids[j] - c[1];
-			dx[2] = zCentroids[j] - c[2];
-			if (dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2] < ctfsq){
-				verletCount++;
-				verletList[stride * idx + verletCount] = j;
-			}
+	for (int i = 1; i < mols; i++){
+		int j = (i + idx) % mols;
+		dx[0] = xCentroids[j] - c[0];
+		dx[1] = yCentroids[j] - c[1];
+		dx[2] = zCentroids[j] - c[2];
+		if (dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2] < ctfsq){
+			verletCount++;
+			verletList[stride * idx + verletCount] = j;
 		}
 	}
 	if (verletCount >0){
@@ -94,6 +92,8 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	int verletStride = 100;
 	double cutoff = 12.0;
 
+
+	//WOOT! Don't need to do this!
 	// Define constants
 	//int *everletStride = new int;
 	//int *emols = new int;
