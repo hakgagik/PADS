@@ -16,7 +16,7 @@ void main() {
 
 	superCell.toArray(x, y, z);
 
-	cuMainLoop(x, y, z, nBeads, nMols);
+	cuMainLoop(x, y, z, nMols, nBeads);
 
 	//ofstream testOut("testOut.dat");
 

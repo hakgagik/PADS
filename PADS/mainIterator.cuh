@@ -1,1 +1,1 @@
-int cuMainLoop(double *x, double *y, double *z, int nBeads, int nMols);
+int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads);

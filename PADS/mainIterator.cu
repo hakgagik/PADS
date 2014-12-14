@@ -7,7 +7,8 @@
 // Each molecule computes its own centroid and puts it into dcentroids
 // This is done via a parallel reduction algorithm that calculates a sum of n elements in O(log(n)) time.
 // Currently, this only works for n-alkanes where n is a power of 2
-__global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, double *dcentroidsy, double *dcentroidsz, int nBeads){
+__global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, double *dcentroidsy, double *dcentroidsz){
+	int nBeads = blockDim.x;
 	int i = blockIdx.x * nBeads + threadIdx.x;
 	int level = 1;
 
@@ -35,9 +36,9 @@ __global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, 
 	}
 	// Thread 0 then copies its own cx cy and cz back into global memory.
 	if (threadIdx.x == 0){
-		dcentroidsx[blockIdx.x] = cx[0];
-		dcentroidsy[blockIdx.x] = cy[0];
-		dcentroidsz[blockIdx.x] = cz[0];
+		dcentroidsx[blockIdx.x] = cx[0] / nBeads;
+		dcentroidsy[blockIdx.x] = cy[0] / nBeads;
+		dcentroidsz[blockIdx.x] = cz[0] / nBeads;
 	}
 }
 
@@ -71,18 +72,18 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	cudaMalloc(&dy, sizeof(double) * nBeads * nMols);
 	cudaMalloc(&dz, sizeof(double) * nBeads * nMols);
 
-	cudaMemcpy(&dx, &x, nMols * nBeads * sizeof(double), cudaMemcpyHostToDevice);
-	cudaMemcpy(&dy, &y, nMols * nBeads * sizeof(double), cudaMemcpyHostToDevice);
-	cudaMemcpy(&dz, &z, nMols * nBeads * sizeof(double), cudaMemcpyHostToDevice);
+	cudaMemcpy(dx, x, nMols * nBeads * sizeof(double), cudaMemcpyHostToDevice);
+	cudaMemcpy(dy, y, nMols * nBeads * sizeof(double), cudaMemcpyHostToDevice);
+	cudaMemcpy(dz, z, nMols * nBeads * sizeof(double), cudaMemcpyHostToDevice);
 
-	getCentroids<<<nMols, nBeads, 3 * nBeads * sizeof(double)>>>(dx, dy, dz, dcentroidsx, dcentroidsy, dcentroidsz, nBeads);
+	getCentroids<<<nMols, nBeads, 3 * nBeads * sizeof(double)>>>(dx, dy, dz, dcentroidsx, dcentroidsy, dcentroidsz);
 
 	double *eCentroidsx = (double *)malloc(sizeof(double)*nMols);
 	double *eCentroidsy = (double *)malloc(sizeof(double)*nMols);
 	double *eCentroidsz = (double *)malloc(sizeof(double)*nMols);
 
-	cudaMemcpy(&eCentroidsx, &dcentroidsx, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
-	cudaMemcpy(&eCentroidsy, &dcentroidsy, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
-	cudaMemcpy(&eCentroidsz, &dcentroidsz, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
+	cudaMemcpy(eCentroidsx, dcentroidsx, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
+	cudaMemcpy(eCentroidsy, dcentroidsy, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
+	cudaMemcpy(eCentroidsz, dcentroidsz, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
 	return EXIT_SUCCESS;
 }
