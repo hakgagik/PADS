@@ -6,12 +6,6 @@
 #include <iostream>
 
 
-struct constants {
-	double cutoff;
-	int verletStride;
-	int nMols;
-};
-
 // Each thread block contains nBeads threads. There are nMols thread blocks. Therefore, each molecule is its own thread block.
 // Each molecule computes its own centroid and puts it into dcentroids
 // This is done via a parallel reduction algorithm that calculates a sum of n elements in O(log(n)) time.
@@ -56,8 +50,11 @@ __global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, 
 // Now, each thread block has only one thread (representing one molecule). Each thread block will calculate its own verlet cell.
 // This and the centroid calculation happen once every *very many* iterations because the verlet list is not very likely to change
 // and centroids are only used to calculate the verlet list.
-__global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentroids, double*yCentroids, double*zCentroids, constants *dat){
+__global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentroids, double*yCentroids, double*zCentroids, double *cutoff, int *verletStride, int *nMols){
 	// Copy own centroid into local memory
+	double ctf = *cutoff;
+	int mols = *nMols;
+	int stride = *verletStride;
 	int idx = blockIdx.x;
 	double c[3];
 	double dx[3];
@@ -65,11 +62,10 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentro
 	c[0] = xCentroids[idx];
 	c[1] = yCentroids[idx];
 	c[2] = zCentroids[idx];
-	double ctf = dat->cutoff;
 
 	int verletCount = 0;
-	for (int i = 0; i < dat->nMols; i++){
-		int j = i % dat->nMols;
+	for (int i = 0; i < mols; i++){
+		int j = i % mols;
 		if (j != idx){
 			dx[0] = xCentroids[j] - c[0];
 			dx[1] = yCentroids[j] - c[1];
@@ -77,11 +73,11 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentro
 			dist = sqrt(dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2]);
 			if (dist < ctf){
 				verletCount++;
-				verletList[dat->verletStride * idx + verletCount] = j;
+				verletList[stride * idx + verletCount] = j;
 			}
 		}
 	}
-	verletList[idx] = dat->verletStride * idx + verletCount;
+	verletList[idx] = stride * idx + verletCount;
 }
 
 
@@ -89,14 +85,28 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	
 	cudaSetDevice(1);
 
-	constants *edata;
-	edata->cutoff = 12.0;
-	edata->verletStride = 100;
-	edata->nMols = nMols;
+	// Define constants
+	int *everletStride = new int;
+	int *emols = new int;
+	double *ecutoff = new double;
 
-	constants *ddata;
+	*everletStride = 100;
+	*emols = nMols;
+	*ecutoff = 12.0;
 
-	cudaMemcpy(&ddata, &edata, sizeof(constants), cudaMemcpyHostToDevice);
+	int *dverletStride;
+	int *dmols;
+	double *dcutoff; 
+
+	cudaMalloc(&dverletStride, sizeof(int));
+	cudaMalloc(&dmols, sizeof(int));
+	cudaMalloc(&dcutoff, sizeof(double));
+
+	cudaMemcpy(dverletStride, everletStride, sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(dmols, emols, sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(dcutoff, ecutoff, sizeof(double), cudaMemcpyHostToDevice);
+
+	//End constant definition.
 
 	double *dx, *dy, *dz;
 
@@ -124,7 +134,7 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	cudaMalloc(&verletList, sizeof(int) * nMols * verletStride);
 	cudaMalloc(&verletListEnd, sizeof(int) * nMols);
 
-	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, ddata);
+	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, dcutoff, dverletStride, dmols);
 
 	int *eVerletList = new int[nMols*verletStride];
 	cudaMemcpy(eVerletList, verletList, nMols*verletStride*sizeof(int), cudaMemcpyDeviceToHost);
