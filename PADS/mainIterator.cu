@@ -52,12 +52,12 @@ __global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, 
 // This and the centroid calculation happen once every *very many* iterations because the verlet list is not very likely to change
 // and centroids are only used to calculate the verlet list.
 
-__global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentroids, double*yCentroids, double*zCentroids, double *cutoff, int *verletStride, int *nMols){
+__global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentroids, double*yCentroids, double*zCentroids, double cutoff, int verletStride, int nMols){
 	// Copy own centroid into local memory
-	double ctfsq = cutoff[0];
+	double ctfsq = cutoff;
 	ctfsq *= ctfsq;
-	int mols = nMols[0];
-	int stride = verletStride[0];
+	int mols = nMols;
+	int stride = verletStride;
 	int idx = blockIdx.x;
 	double c[3];
 	double dx[3];
@@ -91,26 +91,29 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	
 	cudaSetDevice(1);
 
+	int verletStride = 100;
+	double cutoff = 12.0;
+
 	// Define constants
-	int *everletStride = new int;
-	int *emols = new int;
-	double *ecutoff = new double;
+	//int *everletStride = new int;
+	//int *emols = new int;
+	//double *ecutoff = new double;
 
-	*everletStride = 100;
-	*emols = nMols;
-	*ecutoff = 12.0;
+	//*everletStride = 100;
+	//*emols = nMols;
+	//*ecutoff = 12.0;
 
-	int *dverletStride;
-	int *dmols;
-	double *dcutoff; 
+	//int *dverletStride;
+	//int *dmols;
+	//double *dcutoff; 
 
-	cudaMalloc(&dverletStride, sizeof(int));
-	cudaMalloc(&dmols, sizeof(int));
-	cudaMalloc(&dcutoff, sizeof(double));
+	//cudaMalloc(&dverletStride, sizeof(int));
+	//cudaMalloc(&dmols, sizeof(int));
+	//cudaMalloc(&dcutoff, sizeof(double));
 
-	cudaMemcpy(dverletStride, everletStride, sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(dmols, emols, sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(dcutoff, ecutoff, sizeof(double), cudaMemcpyHostToDevice);
+	//cudaMemcpy(dverletStride, everletStride, sizeof(int), cudaMemcpyHostToDevice);
+	//cudaMemcpy(dmols, emols, sizeof(int), cudaMemcpyHostToDevice);
+	//cudaMemcpy(dcutoff, ecutoff, sizeof(double), cudaMemcpyHostToDevice);
 
 	//End constant definition.
 
@@ -136,14 +139,14 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	int* verletListEnd;
 
 
-	cudaMalloc(&verletList, sizeof(int) * nMols * (*everletStride));
+	cudaMalloc(&verletList, sizeof(int) * nMols * verletStride);
 	cudaMalloc(&verletListEnd, sizeof(int) * nMols);
 
-	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, dcutoff, dverletStride, dmols);
+	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, cutoff, verletStride, nMols);
 
-	int *eVerletList = new int[nMols* *everletStride];
+	int *eVerletList = new int[nMols* verletStride];
 	int *eVerletListEnd = new int[nMols];
-	cudaMemcpy(eVerletList, verletList, nMols* *everletStride * sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(eVerletList, verletList, nMols* verletStride * sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(eVerletListEnd, verletListEnd, sizeof(int)*nMols, cudaMemcpyDeviceToHost);
 
 	std::ofstream verletOut("verlet.dat");
