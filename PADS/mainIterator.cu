@@ -3,10 +3,8 @@
 #include <device_launch_parameters.h>
 #include <math.h>
 #include "mainIterator.cuh"
-#include <iostream>
-#include <fstream>
-#include <iomanip>
 
+// Each thread block contains nBeads threads. There are nMols thread blocks. Therefore, each molecule is its own thread block.
 // Each molecule computes its own centroid and puts it into dcentroids
 // This is done via a parallel reduction algorithm that calculates a sum of n elements in O(log(n)) time.
 // Currently, this only works for n-alkanes where n is a power of 2
@@ -22,6 +20,7 @@ __global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, 
 	double *cz = &(c[2 * nBeads]);
 
 	// Each bead copies its own info into the shared memory space.
+	// Global memory bad!
 	cx[threadIdx.x] = x[i];
 	cy[threadIdx.x] = y[i];
 	cz[threadIdx.x] = z[i];
@@ -45,10 +44,34 @@ __global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, 
 	}
 }
 
-// Each thread block contains nBeads threads. There are nMols thread blocks. Therefore, each molecule is its own thread block.
-// We begin by generating the Verlet list. To do this, each molecule copies 
-__global__ void getVerletLisT(int*verletList, int*verletListStart, int*verletListEnd, double*x, double*y, double*z, double cutoff){
-	
+// We next, we generate the Verlet list. This massively speeds up computation time.
+// Now, each thread block has only one thread (representing one molecule). Each thread block will calculate its own verlet cell.
+// This and the centroid calculation happen once every *very many* iterations because the verlet list is not very likely to change
+// and centroids are only used to calculate the verlet list.
+__global__ void getVerletList(int*verletList, int *verletListEnd, int verletStride, int nMols, double*xCentroids, double*yCentroids, double*zCentroids, double cutoff){
+	// Copy own centroid into local memory
+	int idx = blockIdx.x;
+	double c[3];
+	double dx[3];
+	double dist;
+	c[0] = xCentroids[idx];
+	c[1] = yCentroids[idx];
+	c[2] = zCentroids[idx];
+
+	int verletCount = 0;
+	for (int i = 0; i < nMols; i++){
+		int j = i % nMols;
+		if (j != idx){
+			dx[0] = xCentroids[j] - c[0];
+			dx[1] = yCentroids[j] - c[1];
+			dx[2] = zCentroids[j] - c[2];
+			dist = sqrt(dx[0] * dx[0] + dx[1] * dx[1] + dx[2] * dx[2]);
+			if (dist < cutoff){
+				verletCount++;
+				verletList[verletStride * idx + verletCount] = j;
+			}
+		}
+	}
 }
 
 
@@ -58,14 +81,6 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	double *dx, *dy, *dz;
 
 	double *dcentroidsx, *dcentroidsy, *dcentroidsz;
-
-	int* verletList;
-	int* verletListStart;
-	int* verletListEnd;
-
-	cudaMalloc(&verletList, sizeof(int) * nMols * 100);
-	cudaMalloc(&verletListStart, sizeof(int) * nMols);
-	cudaMalloc(&verletListEnd, sizeof(int) * nMols);
 
 	cudaMalloc(&dcentroidsx, sizeof(double)*nMols);
 	cudaMalloc(&dcentroidsy, sizeof(double)*nMols);
@@ -81,22 +96,14 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
 	getCentroids<<<nMols, nBeads, 3 * nBeads * sizeof(double)>>>(dx, dy, dz, dcentroidsx, dcentroidsy, dcentroidsz);
 
-	double *eCentroidsx = (double *)malloc(sizeof(double)*nMols);
-	double *eCentroidsy = (double *)malloc(sizeof(double)*nMols);
-	double *eCentroidsz = (double *)malloc(sizeof(double)*nMols);
+	int* verletList;
+	int* verletListEnd;
+	int verletStride = 100;
 
-	cudaMemcpy(eCentroidsx, dcentroidsx, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
-	cudaMemcpy(eCentroidsy, dcentroidsy, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
-	cudaMemcpy(eCentroidsz, dcentroidsz, sizeof(double)*nMols, cudaMemcpyDeviceToHost);
+	cudaMalloc(&verletList, sizeof(int) * nMols * verletStride);
+	cudaMalloc(&verletListEnd, sizeof(int) * nMols);
 
-	using namespace std;
-	ofstream output("centroids.dat");
-
-	for (int i = 0; i < nMols; i++){
-		output << setw(15) << eCentroidsx[i]
-			<< setw(15) << eCentroidsy[i]
-			<< setw(15) << eCentroidsz[i] << endl;
-	}
+	getVerletList<<<nMols,1>>>(verletList, verletListEnd, verletStride, nMols, dcentroidsx, dcentroidsy, dcentroidsz, 12.0);
 
 	return EXIT_SUCCESS;
 }
