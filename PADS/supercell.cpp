@@ -165,9 +165,9 @@ void supercell::toArray(double *x, double *y, double *z){
 	int nBeads = mols[0].nBeads;
 	for (int i = 0; i < nMols; i++){
 		for (int j = 0; j < nBeads; j++){
-			x[i * nBeads + j] = mols[i].beads(j, 0);
-			y[i * nBeads + j] = mols[i].beads(j, 1);
-			z[i * nBeads + j] = mols[i].beads(j, 2);
+			x[i * nBeads + j] = mols[i].beads(j, 0) / 10; // Converting angstroms to nm
+			y[i * nBeads + j] = mols[i].beads(j, 1) / 10;
+			z[i * nBeads + j] = mols[i].beads(j, 2) / 10;
 		}
 	}
 }

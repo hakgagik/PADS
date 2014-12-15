@@ -7,6 +7,28 @@
 #include <fstream>
 #include <iomanip>
 
+#define verletStride 100
+#define cutoff 1.2
+#define k_l 1.46E5
+#define k_th 251.04
+#define k_phi1 6.78
+#define k_phi2 -3.6
+#define k_phi3 13.56
+#define l_0 0.153
+#define th_0 1.187
+#define eps 0.39
+#define sigma 0.401
+#define ax .40214
+#define ay .11031
+#define az .04552
+#define bx 0.0
+#define by .47345
+#define bz .04051
+#define cx -.00002849
+#define cy -.00003859
+#define cz 1.09983
+
+
 // Each thread block contains nBeads threads. There are nMols thread blocks. Therefore, each molecule is its own thread block.
 // Each molecule computes its own centroid and puts it into dcentroids
 // This is done via a parallel reduction algorithm that calculates a sum of n elements in O(log(n)) time.
@@ -18,32 +40,32 @@ __global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, 
 
 	// Declare a shared variable to be used to calculate the centroid before copying into global memory.
 	extern __shared__ double c[];
-	double *cx = c;
-	double *cy = &(c[nBeads]);
-	double *cz = &(c[2 * nBeads]);
+	double *mycx = c;
+	double *mycy = &(c[nBeads]);
+	double *mycz = &(c[2 * nBeads]);
 
 	// Each bead copies its own info into the shared memory space.
 	// Global memory bad!
-	cx[threadIdx.x] = x[i];
-	cy[threadIdx.x] = y[i];
-	cz[threadIdx.x] = z[i];
+	mycx[threadIdx.x] = x[i];
+	mycy[threadIdx.x] = y[i];
+	mycz[threadIdx.x] = z[i];
 
 	__syncthreads();
 
 	// Do a parallel reduction to find the sum of all the positions.
 	while (level < nBeads){
 		if (threadIdx.x % (2*level) == 0){
-			cx[threadIdx.x] += cx[threadIdx.x + level];
-			cy[threadIdx.x] += cy[threadIdx.x + level];
-			cz[threadIdx.x] += cz[threadIdx.x + level];
+			mycx[threadIdx.x] += mycx[threadIdx.x + level];
+			mycy[threadIdx.x] += mycy[threadIdx.x + level];
+			mycz[threadIdx.x] += mycz[threadIdx.x + level];
 		}
 		level *= 2;
 	}
 	// Thread 0 then copies its own cx cy and cz back into global memory.
 	if (threadIdx.x == 0){
-		dcentroidsx[blockIdx.x] = cx[0] / nBeads;
-		dcentroidsy[blockIdx.x] = cy[0] / nBeads;
-		dcentroidsz[blockIdx.x] = cz[0] / nBeads;
+		dcentroidsx[blockIdx.x] = mycx[0] / nBeads;
+		dcentroidsy[blockIdx.x] = mycy[0] / nBeads;
+		dcentroidsz[blockIdx.x] = mycz[0] / nBeads;
 	}
 }
 
@@ -51,8 +73,7 @@ __global__ void getCentroids(double*x, double*y, double*z, double *dcentroidsx, 
 // Now, each thread block has only one thread (representing one molecule). Each thread block will calculate its own verlet cell.
 // This and the centroid calculation happen once every *very many* iterations because the verlet list is not very likely to change
 // and centroids are only used to calculate the verlet list.
-
-__global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentroids, double*yCentroids, double*zCentroids, double cutoff, int verletStride, int nMols){
+__global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentroids, double*yCentroids, double*zCentroids, int nMols){
 	// Copy own centroid into local memory and make local copies of all the parameters.
 	double ctfsq = cutoff;
 	ctfsq *= ctfsq;
@@ -85,41 +106,99 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentro
 	}
 }
 
-__global__ void MDStep(double *x, double *y, double *z, )
+// This is the main MD method.
+// Technically, one octane (8 threads) per block is very inefficient. I should be using threadblocks of at least 32 threads. However, this would make programming a nightmare, as I'd have to first spend time figuring out how to organize the 4 octanes into memory and constantly making sure that they don't accidentally overlap.
+__global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, double *verletList, double * verletListEnd, int nMols){
+	// Copy constants into local memory... The caffeine in my bloodstream doesn't trust whatever's coming in through the functionc call >.>
+	int i = blockIdx.x;
+	int j = threadIdx.x;
+	int b = blockDim.x;
+	int m = nMols;
+
+	// Pushing the max shared memory limit pretty hard here =/ Max shared memory is 49152B I'm using 19584B (although I should be able to cut this by half if things behave well enough) Right now, verletStride doesn't need to be more than 30.
+	extern __shared__ double sharedMem[];
+	double *x = sharedMem;
+	double *y = &(sharedMem[b]);
+	double *z = &(sharedMem[2 * b]);
+	double *r = &(sharedMem[3 * b]);
+	double *theta = &(sharedMem[4 * b]);
+	double *phi = &(sharedMem[5 * b]);
+	double *verletX = &(sharedMem[6 * b]);
+	double *verletY = &(sharedMem[(6 + verletStride) * b]);
+	double *verletZ = &(sharedMem[(6 + 2 * verletStride) * b]);
+
+	// First, copy positions into shared memory. Each thread copies its own position. Thread = bead.
+	x[j] = xGlobal[i*b + j];
+	y[j] = yGlobal[i*b + j];
+	z[j] = zGlobal[i*b + j];
+
+	// Next, copy positions of other molecules in the verletList into shared memory. Each thread copies data corresponding to itself.
+	int vCount = 0;
+	for (int idx = verletStride * i; idx <= verletListEnd[i]; idx++){
+		verletX[vCount * b + j] = xGlobal[b * idx + j];
+		verletY[vCount * b + j] = yGlobal[b * idx + j];
+		verletZ[vCount * b + j] = zGlobal[b * idx + j];
+		vCount++;
+	}
+
+	__syncthreads();
+
+	// Each molecule stores a vector to the next bead and the previous bead.
+	// The third set of beads is the distance between the next bead and the bead after that (for torsion calculation).
+	double dxp, dyp, dzp, dxm, dym, dzm, dxpp, dypp, dzpp;
+
+	if (j < (b - 1)) {
+		dxp = x[j + 1] - x[j];
+		dyp = y[j + 1] - y[j];
+		dzp = z[j + 1] - z[j];
+	}
+	else {
+		dxp = 0;
+		dyp = 0;
+		dzp = 0;
+	}
+
+	if (j > 0){
+		dxm = x[j] - x[j - 1];
+		dym = y[j] - y[j - 1];
+		dzm = z[j] - z[j - 1];
+	}
+	else {
+		dxm = 0;
+		dym = 0;
+		dzm = 0;
+	}
+
+	if (j < (b - 2)) {
+		dxpp = x[j + 1] - x[j + 2];
+		dypp = y[j + 1] - y[j + 2];
+		dzpp = z[j + 1] - z[j + 2];
+	}
+
+	// Next, calculate distances between beads. Each thread calculates the distance to the next bead.
+	r[j] = sqrt(dxp * dxp + dyp * dyp + dzp * dzp);
+
+	__syncthreads();
+
+	// Now, calculate angles between beads. Each bead claculates the angle that has it at the origin.
+	// The threads at the edges will produce nonsensical results, but we're not going to access them (in any useful manner) anyway.
+	// Allowing the edge threads to calculate angles minimizes thread divergence (different theads doing different things).
+	theta[j] = acos((dxp * dxm + dyp * dym + dzp * dzm) / r[j] / r[j - 1]);
+
+	// Finally, calculate four-molecule torsion angles.
+	// Same as above, this will produce some nonsensical data, but we won't be accessing it.
+	phi[j] = acos((dxm * dxpp + dym * dypp + dzm * dzpp) / r[j - 1] / r[j + 1]);
+
+	// Now, each molecule calculates a force on itself from ALL the terms. ALL OF THEM.
+	double Fx = 0, Fy = 0, Fz = 0;
+}
 
 
 int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	
 	cudaSetDevice(1);
 
-	int verletStride = 100;
-	double cutoff = 12.0;
-
-
-	//WOOT! Don't need to do this!
-	// Define constants
-	//int *everletStride = new int;
-	//int *emols = new int;
-	//double *ecutoff = new double;
-
-	//*everletStride = 100;
-	//*emols = nMols;
-	//*ecutoff = 12.0;
-
-	//int *dverletStride;
-	//int *dmols;
-	//double *dcutoff; 
-
-	//cudaMalloc(&dverletStride, sizeof(int));
-	//cudaMalloc(&dmols, sizeof(int));
-	//cudaMalloc(&dcutoff, sizeof(double));
-
-	//cudaMemcpy(dverletStride, everletStride, sizeof(int), cudaMemcpyHostToDevice);
-	//cudaMemcpy(dmols, emols, sizeof(int), cudaMemcpyHostToDevice);
-	//cudaMemcpy(dcutoff, ecutoff, sizeof(double), cudaMemcpyHostToDevice);
-
-	//End constant definition.
-
+	// d in front of a variable in this functions means it's a device variable
 	double *dx, *dy, *dz;
 
 	double *dcentroidsx, *dcentroidsy, *dcentroidsz;
@@ -159,6 +238,7 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 		for (int j = 0; j < 100; j++){
 			verletOut << std::setw(15) << eVerletList[i * 100 + j];
 		}
+
 		verletOut << std::endl;
 		verletEndOut << std::setw(15) << eVerletListEnd[i] << std::endl;
 	}
