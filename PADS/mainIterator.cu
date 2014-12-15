@@ -7,6 +7,8 @@
 #include <fstream>
 #include <iomanip>
 
+// Define statements are a quick and dirty way of getting global constants to the device.
+// If I had more style and skill, I'd use device constants. But I don't :P
 #define PI 3.14159265359
 #define verletStride 100
 #define cutoff 1.2
@@ -28,6 +30,9 @@
 #define cx -.00002849
 #define cy -.00003859
 #define cz 1.09983
+#define mCH2 14.0266
+#define mCH3 15.0345
+#define dt 0.001 // Energy is in units of Kj, mass is in units of g and distance is in units of nm, so natural time units are ps
 
 // Simple integer power function for the LJ potential.
 
@@ -110,7 +115,7 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentro
 
 // This is the main MD method.
 // Technically, one octane (8 threads) per block is very inefficient. I should be using threadblocks of at least 32 threads. However, this would make programming a nightmare, as I'd have to first spend time figuring out how to organize the 4 octanes into memory and constantly making sure that they don't accidentally overlap.
-__global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *verletList, int * verletListEnd){
+__global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *verletList, int * verletListEnd, double *vx, double *vy, double *vz, double *accx, double *accy, double *accz){
 	// Copy constants into local memory... The caffeine in my bloodstream doesn't trust whatever's coming in through the functionc call >.>
 	int i = blockIdx.x;
 	int j = threadIdx.x;
@@ -128,10 +133,10 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	double *verletY = &(sharedMem[(6 + verletStride) * b]);
 	double *verletZ = &(sharedMem[(6 + 2 * verletStride) * b]);
 
-	// First, copy positions into shared memory. Each thread copies its own position. Thread = bead.
-	x[j] = xGlobal[i*b + j];
-	y[j] = yGlobal[i*b + j];
-	z[j] = zGlobal[i*b + j];
+	// First, copy positions into shared memory and perform first step of velocity-Verlet. Each thread copies its own position. Thread = bead.
+	x[j] = xGlobal[i*b + j] + vx[i*b + j] * dt + 0.5 * accx[i*b + j] * dt * dt;
+	y[j] = yGlobal[i*b + j] + vy[i*b + j] * dt + 0.5 * accy[i*b + j] * dt * dt;
+	z[j] = zGlobal[i*b + j] + vz[i*b + j] * dt + 0.5 * accz[i*b + j] * dt * dt;
 
 	// Next, copy positions of other molecules in the verletList into shared memory. Each thread copies data corresponding to itself.
 	int vCount = 0;
@@ -270,6 +275,25 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 		Fy += factor * dy;
 		Fz += factor * dz;
 	}
+
+	if (j == 0 || j == (b - 1)) {
+		Fx /= mCH3;
+		Fy /= mCH3;
+		Fz /= mCH3;
+	}
+	else {
+		Fx /= mCH2;
+		Fy /= mCH2;
+		Fz /= mCH2;
+	}
+
+	vx[i*b + j] += 0.5 * dt * (accx[i*b + j] + Fx);
+	vy[i*b + j] += 0.5 * dt * (accy[i*b + j] + Fy);
+	vz[i*b + j] += 0.5 * dt * (accz[i*b + j] + Fz);
+
+	accx[i*b + j] = Fx;
+	accy[i*b + j] = Fy;
+	accz[i*b + j] = Fz;
 }
 
 
@@ -279,6 +303,8 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
 	// d in front of a variable in this functions means it's a device variable
 	double *dx, *dy, *dz;
+	double *dvx, *dvy, *dvz;
+	double *daccx, *daccy, *daccz;
 
 	double *dcentroidsx, *dcentroidsy, *dcentroidsz;
 
@@ -289,6 +315,14 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	cudaMalloc(&dx, sizeof(double) * nBeads * nMols);
 	cudaMalloc(&dy, sizeof(double) * nBeads * nMols);
 	cudaMalloc(&dz, sizeof(double) * nBeads * nMols);
+
+	cudaMalloc(&dvx, sizeof(double) * nBeads * nMols);
+	cudaMalloc(&dvy, sizeof(double) * nBeads * nMols);
+	cudaMalloc(&dvz, sizeof(double) * nBeads * nMols);
+
+	cudaMalloc(&daccx, sizeof(double) * nBeads * nMols);
+	cudaMalloc(&daccy, sizeof(double) * nBeads * nMols);
+	cudaMalloc(&daccz, sizeof(double) * nBeads * nMols);
 
 	cudaMemcpy(dx, x, nMols * nBeads * sizeof(double), cudaMemcpyHostToDevice);
 	cudaMemcpy(dy, y, nMols * nBeads * sizeof(double), cudaMemcpyHostToDevice);
@@ -303,9 +337,58 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	cudaMalloc(&verletList, sizeof(int) * nMols * verletStride);
 	cudaMalloc(&verletListEnd, sizeof(int) * nMols);
 
+	
 	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, nMols);
 
-	MDStep<<<nMols,nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd);
+	// Initialize velocities and acceleratiosn
+	double *evx, *evy, *evz;
+	double *eaccx, *eaccy, *eaccz;
+
+	evx = new double[nBeads * nMols];
+	evy = new double[nBeads * nMols];
+	evz = new double[nBeads * nMols];
+
+	eaccx = new double[nBeads * nMols];
+	eaccy = new double[nBeads * nMols];
+	eaccz = new double[nBeads * nMols];
+
+	for (int i = 0; i < nBeads*nMols; i++){
+		evx[i] = 0;
+		evy[i] = 0;
+		evz[i] = 0;
+		eaccx[i] = 0;
+		eaccy[i] = 0;
+		eaccz[i] = 0;
+	}
+
+	cudaMemcpy(dvx, evx, sizeof(double) * nBeads * nMols, cudaMemcpyHostToDevice);
+	cudaMemcpy(dvy, evy, sizeof(double) * nBeads * nMols, cudaMemcpyHostToDevice);
+	cudaMemcpy(dvz, evz, sizeof(double) * nBeads * nMols, cudaMemcpyHostToDevice);
+	cudaMemcpy(daccx, eaccx, sizeof(double) * nBeads * nMols, cudaMemcpyHostToDevice);
+	cudaMemcpy(daccy, eaccy, sizeof(double) * nBeads * nMols, cudaMemcpyHostToDevice);
+	cudaMemcpy(daccz, eaccz, sizeof(double) * nBeads * nMols, cudaMemcpyHostToDevice);
+
+	for (int i = 0; i < 100; i++){
+		MDStep<<<nMols, nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd, dvx, dvy, dvz, daccx, daccy, daccz);
+	}
+
+	cudaMemcpy(x, dx, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
+	cudaMemcpy(y, dy, nMols * nBeads * sizeof(double), cudaMemcpyHostToHost);
+	cudaMemcpy(z, dz, nMols * nBeads * sizeof(double), cudaMemcpyHostToHost);
+	cudaMemcpy(evx, dvx, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
+	cudaMemcpy(evy, dvy, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
+	cudaMemcpy(evz, dvz, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
+	cudaMemcpy(eaccx, daccx, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
+	cudaMemcpy(eaccy, daccy, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
+	cudaMemcpy(eaccz, daccz, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
+
+	std::ofstream out("finalOut.dat");
+	for (int i = 0; i < nBeads*nMols; i++){
+		out << std::setw(15) << x[i]
+			<< std::setw(15) << y[i]
+			<< std::setw(15) << z[i]
+			<< std::endl;
+	}
 
 	return EXIT_SUCCESS;
 }
