@@ -224,7 +224,7 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	cudaMalloc(&verletList, sizeof(int) * nMols * verletStride);
 	cudaMalloc(&verletListEnd, sizeof(int) * nMols);
 
-	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, cutoff, verletStride, nMols);
+	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, nMols);
 
 	MDStep<<<nMols,nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd, nMols);
 
