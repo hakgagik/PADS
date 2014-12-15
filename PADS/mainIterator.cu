@@ -30,10 +30,6 @@
 #define cz 1.09983
 
 // Simple integer power function for the LJ potential.
-__inline__ __device__ double pow6(double a){
-	a *= a * a;
-	return a * a;
-}
 
 // Each thread block contains nBeads threads. There are nMols thread blocks. Therefore, each molecule is its own thread block.
 // Each molecule computes its own centroid and puts it into dcentroids
@@ -260,7 +256,36 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	}
 	
 	// Finally, Van der Walls
+	// First, grab beads in own molecule
+	double dx, dy, dz, rsq, sdrcb;
+	for (int n = 0; n < b; n++){
+		if (n != j){
+			dx = x[n] - x[j];
+			dy = y[n] - y[j];
+			dz = z[n] - z[j];
+			rsq = dx * dx + dy * dy + dz * dz;
+			sdrcb = sigma * sigma / rsq;
+			sdrcb *= sdrcb * sdrcb;
+			factor = 4 * eps * sdrcb * (12 * sdrcb - 6) / rsq;
+			Fx += factor * dx;
+			Fy += factor * dy;
+			Fz += factor * dz;
+		}
+	}
 
+	// Now do the same for everything in Verlet list
+	for (int v = 0; v < vCount * b; v++){
+		dx = verletX[v] - x[j];
+		dy = verletY[v] - y[j];
+		dz = verletZ[v] - z[j];
+		rsq = dx * dx + dy * dy + dz * dz;
+		sdrcb = sigma * sigma / rsq;
+		sdrcb *= sdrcb * sdrcb;
+		factor = 4 * eps * sdrcb * (12 * sdrcb - 6) / rsq;
+		Fx += factor * dx;
+		Fy += factor * dy;
+		Fz += factor * dz;
+	}
 }
 
 
