@@ -189,6 +189,7 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	phi[j] = acos((dxm * dxpp + dym * dypp + dzm * dzpp) / r[j - 1] / r[j + 1]);
 
 	// Now, each molecule calculates a force on itself from ALL the terms. ALL OF THEM.
+<<<<<<< HEAD
 	double Fx = 0, Fy = 0, Fz = 0;
 
 	// First, the spring term. Each bead receives a contribution from the bead ahead of it and from the bead behind it.
@@ -225,6 +226,10 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 			+ (dxp / r[j] - cos(theta[j]) * dxm / r[j - 1]) / r[j - 1];
 	}
 
+=======
+	//double Fx = 0, Fy = 0, Fz = 0;
+	
+>>>>>>> origin/master
 }
 
 
