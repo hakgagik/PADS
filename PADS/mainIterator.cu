@@ -28,7 +28,6 @@
 #define cy -.00003859
 #define cz 1.09983
 
-
 // Each thread block contains nBeads threads. There are nMols thread blocks. Therefore, each molecule is its own thread block.
 // Each molecule computes its own centroid and puts it into dcentroids
 // This is done via a parallel reduction algorithm that calculates a sum of n elements in O(log(n)) time.
@@ -159,9 +158,9 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	}
 
 	if (j > 0){
-		dxm = x[j] - x[j - 1];
-		dym = y[j] - y[j - 1];
-		dzm = z[j] - z[j - 1];
+		dxm = x[j - 1] - x[j];
+		dym = y[j - 1] - y[j];
+		dzm = z[j - 1] - z[j];
 	}
 	else {
 		dxm = 0;
@@ -170,9 +169,9 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	}
 
 	if (j < (b - 2)) {
-		dxpp = x[j + 1] - x[j + 2];
-		dypp = y[j + 1] - y[j + 2];
-		dzpp = z[j + 1] - z[j + 2];
+		dxpp = x[j + 2] - x[j + 1];
+		dypp = y[j + 2] - y[j + 1];
+		dzpp = z[j + 2] - z[j + 1];
 	}
 
 	// Next, calculate distances between beads. Each thread calculates the distance to the next bead.
@@ -190,9 +189,42 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	phi[j] = acos((dxm * dxpp + dym * dypp + dzm * dzpp) / r[j - 1] / r[j + 1]);
 
 	// Now, each molecule calculates a force on itself from ALL the terms. ALL OF THEM.
-	//double Fx = 0, Fy = 0, Fz = 0;
-	dr[i*b + j] = r[j];
-	
+	double Fx = 0, Fy = 0, Fz = 0;
+
+	// First, the spring term. Each bead receives a contribution from the bead ahead of it and from the bead behind it.
+	double factor;
+	if (j > 0) {
+		factor = 2 * k_l * (l_0 - r[j]) / r[j];
+		Fx += factor * dxp;
+		Fy += factor * dyp;
+		Fz += factor * dzp;
+	}
+	if (j < (b - 1)) {
+		factor = 2 * k_l * (l_0 - r[j - 1]) / r[j - 1];
+		Fx += factor * dxm;
+		Fy += factor * dym;
+		Fz += factor * dzm;
+	}
+
+	// Next, the theta term. A bit more complicated. Each molecule recieve a contribution from the angle behind it, the angle ahead of it, and the angle that has it as the origin.
+	if (j < (b - 2)) {
+		factor = 2 * k_th * (th_0 - theta[j + 1])/r[j];
+		Fx += factor * (dxpp / r[j + 1] + cos(theta[j + 1]) * dxp / r[j]);
+		Fy += factor * (dypp / r[j + 1] + cos(theta[j + 1]) * dyp / r[j]);
+		Fz += factor * (dzpp / r[j + 1] + cos(theta[j + 1]) * dzp / r[j]);
+	}
+	if (j > 1) {
+		factor = 2 * k_th * (th_0 - theta[j - 1] / r[j - 1]);
+		Fx += factor * ((x[j - 2] - x[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dxm);
+		Fy += factor * ((y[j - 2] - y[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dym);
+		Fz += factor * ((z[j - 2] - z[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dzm);
+	}
+	if (j > 0 && j < (b - 1)){
+		factor = 2 * k_th * (th_0 - theta[j]);
+		Fx -= factor * (dxm / r[j - 1] - cos(theta[j]) * dxp / r[j]) / r[j]
+			+ (dxp / r[j] - cos(theta[j]) * dxm / r[j - 1]) / r[j - 1];
+	}
+
 }
 
 
@@ -228,13 +260,7 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
 	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, nMols);
 
-	double *dr, *er;
-	er = new double[nBeads*nMols];
-	cudaMalloc(&dr, nBeads*nMols*sizeof(double));
-
 	MDStep<<<nMols,nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd, dr, nMols);
-
-	cudaMemcpy(er, dr, nBeads*nMols*sizeof(double), cudaMemcpyDeviceToHost);
 
 	return EXIT_SUCCESS;
 }
