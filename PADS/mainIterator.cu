@@ -191,7 +191,6 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 
 	// Now, each molecule calculates a force on itself from ALL the terms. ALL OF THEM.
 	//double Fx = 0, Fy = 0, Fz = 0;
-	dr[i*b + j] = r[j];
 	
 }
 
