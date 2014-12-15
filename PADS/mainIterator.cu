@@ -225,6 +225,33 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 		Fx -= factor * (dxm / r[j - 1] - cos(theta[j]) * dxp / r[j]) / r[j]
 			+ (dxp / r[j] - cos(theta[j]) * dxm / r[j - 1]) / r[j - 1];
 	}
+
+	// Next phi. WHAT. THE. FUCK. Is WRONG with GIT?!
+	if (j < (b - 3)){
+		factor = 0.5 * (k_phi1 * sin(phi[j + 1]) + 2 * k_phi2 * sin(2 * phi[j + 1]) + 3 * k_phi3 * sin(3 * phi[j + 1])) / sin(phi[j + 1]);
+		Fx += factor * ((x[j + 3] - x[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dxp / r[j]) / r[j];
+		Fy += factor * ((y[j + 3] - y[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dyp / r[j]) / r[j];
+		Fz += factor * ((z[j + 3] - z[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dzp / r[j]) / r[j];
+	}
+	if (j < (b - 2) && j > 0) {
+		factor = 0.5 * (k_phi1 * sin(phi[j]) + 2 * k_phi2 * sin(2 * phi[j]) + 3 * k_phi3 * sin(3 * phi[j])) / sin(phi[j]);
+		Fx -= factor * (dxpp / r[j + 1] - cos(phi[j]) * dxm / r[j - 1]) / r[j - 1];
+		Fy -= factor * (dypp / r[j + 1] - cos(phi[j]) * dym / r[j - 1]) / r[j - 1];
+		Fz -= factor * (dzpp / r[j + 1] - cos(phi[j]) * dzm / r[j - 1]) / r[j - 1];
+	}
+	if (j < (b - 1) && j > 1) {
+		factor = 0.5 * (k_phi1 * sin(phi[j - 1]) + 2 * k_phi2 * sin(2 * phi[j - 1]) + 3 * k_phi3 * sin(3 * phi[j - 1])) / sin(phi[j - 1]);
+		Fx -= factor * ((x[j - 2] - x[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dxp / r[j]) / r[j];
+		Fy -= factor * ((y[j - 2] - y[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dyp / r[j]) / r[j];
+		Fz -= factor * ((z[j - 2] - z[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dzp / r[j]) / r[j];
+	}
+	if (j > 2) {
+		factor = 0.5 * (k_phi1 * sin(phi[j - 2]) + 2 * k_phi2 * sin(2 * phi[j - 2]) + 3 * k_phi3 * sin(3 * phi[j - 2])) / sin(phi[j - 2]);
+		Fx += factor * ((x[j - 3] - x[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dxm / r[j - 1]) / r[j - 1];
+		Fy += factor * ((y[j - 3] - y[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dym / r[j - 1]) / r[j - 1];
+		Fz += factor * ((z[j - 3] - z[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dzm / r[j - 1]) / r[j - 1];
+	}
+
 }
 
 
