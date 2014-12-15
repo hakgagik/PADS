@@ -222,9 +222,9 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	}
 	if (j > 1) {
 		factor = 2 * k_th * (th_0 - PI + theta[j - 1] / r[j - 1]) / sin(theta[j - 1]);
-		Fx += factor * ((x[j - 2] - x[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dxm);
-		Fy += factor * ((y[j - 2] - y[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dym);
-		Fz += factor * ((z[j - 2] - z[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dzm);
+		Fx += factor * ((x[j - 2] - x[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dxm / r[j - 1]);
+		Fy += factor * ((y[j - 2] - y[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dym / r[j - 1]);
+		Fz += factor * ((z[j - 2] - z[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dzm / r[j - 1]);
 	}
 	if (j > 0 && j < (b - 1)){
 		factor = 2 * k_th * (th_0 - PI + theta[j]) / sin(theta[j]);
