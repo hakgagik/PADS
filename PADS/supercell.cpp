@@ -40,8 +40,21 @@ molecule::molecule(int n, mat &atoms){
 		if (i == 0 || i == n - 1) beads.row(i) /= mol::mCH4;
 		else beads.row(i) /= mol::mCH3;
 	}
-	
 	centroid /= mTotal;
+	
+	// Sort beads by z-coordinate. Yes. I've gotten to that point. If I hade more time, this would be a lot more intracate :P
+	// Bubblesort time!
+	// Aint nobody got time for quicksort.
+	rowvec dummy;
+	for (int i = 0; i < nBeads - 1; i++){
+		for (int j = i; j < nBeads - 1; j++) {
+			if (beads(j, 2) > beads(j + 1, 2)) {
+				dummy = beads.row(j);
+				beads.row(j) = beads.row(j + 1);
+				beads.row(j + 1) = dummy;
+			}
+		}
+	}
 }
 
 supercell::supercell(){
