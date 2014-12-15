@@ -19,28 +19,28 @@ molecule::molecule(int n, mat &atoms){
 	beads.fill(fill::zeros);
 	centroid.fill(fill::zeros);
 
-	double mTotal = 2.0 * mol::mH;
+	//double mTotal = 2.0 * mol::mH;
 
 	for (int i = 0; i < n; i++){
-		if (i == 0) {
-			beads.row(i) += atoms.row(0) * mol::mH;
-		}
+		//if (i == 0) {
+			//beads.row(i) += atoms.row(0) * mol::mH;
+		//}
 
 		int index = 1 + i * 3;
-		beads.row(i) += atoms.row(index) * mol::mC;
-		beads.row(i) += atoms.row(index + 1) * mol::mH;
-		beads.row(i) += atoms.row(index + 2) * mol::mH;
+		beads.row(i) += atoms.row(index);
+		//beads.row(i) += atoms.row(index + 1) * mol::mH;
+		//beads.row(i) += atoms.row(index + 2) * mol::mH;
 
-		if (i == n - 1) {
-			beads.row(i) += atoms.row(index + 3) * mol::mH;
-		}
+		//if (i == n - 1) {
+			//beads.row(i) += atoms.row(index + 3) * mol::mH;
+		//}
 		centroid += beads.row(i);
-		mTotal += mol::mCH3;
+		//mTotal += mol::mCH3;
 
-		if (i == 0 || i == n - 1) beads.row(i) /= mol::mCH4;
-		else beads.row(i) /= mol::mCH3;
+		//if (i == 0 || i == n - 1) beads.row(i) /= mol::mCH4;
+		//else beads.row(i) /= mol::mCH3;
 	}
-	centroid /= mTotal;
+	centroid /= nBeads;
 	
 	// Sort beads by z-coordinate. Yes. I've gotten to that point. If I hade more time, this would be a lot more intracate :P
 	// Bubblesort time!
