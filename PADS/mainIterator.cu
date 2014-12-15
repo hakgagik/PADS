@@ -138,6 +138,12 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	y[j] = yGlobal[i*b + j] + vy[i*b + j] * dt + 0.5 * accy[i*b + j] * dt * dt;
 	z[j] = zGlobal[i*b + j] + vz[i*b + j] * dt + 0.5 * accz[i*b + j] * dt * dt;
 
+	xGlobal[i*b + j] = x[j];
+	yGlobal[i*b + j] = y[j];
+	zGlobal[i*b + j] = z[j];
+
+	__syncthreads();
+
 	// Next, copy positions of other molecules in the verletList into shared memory. Each thread copies data corresponding to itself.
 	int vCount = 0;
 	for (int idx = verletStride * i; idx <= verletListEnd[i]; idx++){
@@ -300,6 +306,14 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	
 	cudaSetDevice(1);
+	
+	std::ofstream inx("initOut.dat");
+	for (int i = 0; i < nBeads*nMols; i++){
+		inx << std::setw(15) << x[i]
+			<< std::setw(15) << y[i]
+			<< std::setw(15) << z[i]
+			<< std::endl;
+	}
 
 	// d in front of a variable in this functions means it's a device variable
 	double *dx, *dy, *dz;
@@ -370,17 +384,36 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
 	for (int i = 0; i < 100; i++){
 		MDStep<<<nMols, nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd, dvx, dvy, dvz, daccx, daccy, daccz);
+		cudaDeviceSynchronize();
+		cudaMemcpy(x, dx, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
+		cudaMemcpy(y, dy, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
+		cudaMemcpy(z, dz, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
+		cudaMemcpy(evx, dvx, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+		cudaMemcpy(evy, dvy, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+		cudaMemcpy(evz, dvz, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+		cudaMemcpy(eaccx, daccx, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+		cudaMemcpy(eaccy, daccy, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+		cudaMemcpy(eaccz, daccz, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+
+		std::ofstream out("finalOut.dat");
+		for (int i = 0; i < nBeads*nMols; i++){
+			out << std::setw(15) << x[i]
+				<< std::setw(15) << y[i]
+				<< std::setw(15) << z[i]
+				<< std::endl;
+		}
+
 	}
 
 	cudaMemcpy(x, dx, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
-	cudaMemcpy(y, dy, nMols * nBeads * sizeof(double), cudaMemcpyHostToHost);
-	cudaMemcpy(z, dz, nMols * nBeads * sizeof(double), cudaMemcpyHostToHost);
-	cudaMemcpy(evx, dvx, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
-	cudaMemcpy(evy, dvy, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
-	cudaMemcpy(evz, dvz, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
-	cudaMemcpy(eaccx, daccx, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
-	cudaMemcpy(eaccy, daccy, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
-	cudaMemcpy(eaccz, daccz, sizeof(double) * nBeads * nMols, cudaMemcpyHostToHost);
+	cudaMemcpy(y, dy, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
+	cudaMemcpy(z, dz, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
+	cudaMemcpy(evx, dvx, sizeof(double) * nBeads * nMols, cudaMemcpyDeviceToHost);
+	cudaMemcpy(evy, dvy, sizeof(double) * nBeads * nMols, cudaMemcpyDeviceToHost);
+	cudaMemcpy(evz, dvz, sizeof(double) * nBeads * nMols, cudaMemcpyDeviceToHost);
+	cudaMemcpy(eaccx, daccx, sizeof(double) * nBeads * nMols, cudaMemcpyDeviceToHost);
+	cudaMemcpy(eaccy, daccy, sizeof(double) * nBeads * nMols, cudaMemcpyDeviceToHost);
+	cudaMemcpy(eaccz, daccz, sizeof(double) * nBeads * nMols, cudaMemcpyDeviceToHost);
 
 	std::ofstream out("finalOut.dat");
 	for (int i = 0; i < nBeads*nMols; i++){
