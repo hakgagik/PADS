@@ -28,6 +28,11 @@
 #define cy -.00003859
 #define cz 1.09983
 
+// Simple integer power function for the LJ potential.
+__inline__ __device__ double pown(double a, int n){
+
+}
+
 // Each thread block contains nBeads threads. There are nMols thread blocks. Therefore, each molecule is its own thread block.
 // Each molecule computes its own centroid and puts it into dcentroids
 // This is done via a parallel reduction algorithm that calculates a sum of n elements in O(log(n)) time.
@@ -207,24 +212,59 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 		Fz += factor * dzm;
 	}
 
-	// Next, the theta term. A bit more complicated. Each molecule recieve a contribution from the angle behind it, the angle ahead of it, and the angle that has it as the origin.
+	// Next, the theta term. A bit more complicated. Each molecule receives a contribution from the angle behind it, the angle ahead of it, and the angle that has it as the origin.
 	if (j < (b - 2)) {
-		factor = 2 * k_th * (th_0 - theta[j + 1])/r[j];
+		factor = 2 * k_th * (th_0 - theta[j + 1]) / r[j] / -sin(theta[j + 1]);
 		Fx += factor * (dxpp / r[j + 1] + cos(theta[j + 1]) * dxp / r[j]);
 		Fy += factor * (dypp / r[j + 1] + cos(theta[j + 1]) * dyp / r[j]);
 		Fz += factor * (dzpp / r[j + 1] + cos(theta[j + 1]) * dzp / r[j]);
 	}
 	if (j > 1) {
-		factor = 2 * k_th * (th_0 - theta[j - 1] / r[j - 1]);
-		Fx += factor * ((x[j - 2] - x[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dxm);
-		Fy += factor * ((y[j - 2] - y[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dym);
-		Fz += factor * ((z[j - 2] - z[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dzm);
+		factor = 2 * k_th * (th_0 - theta[j - 1] / r[j - 1]) / -sin(theta[j - 1]);
+		Fx += factor * ((x[j - 2] - x[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dxm / r[j - 1]);
+		Fy += factor * ((y[j - 2] - y[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dym / r[j - 1]);
+		Fz += factor * ((z[j - 2] - z[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dzm / r[j - 1]);
 	}
 	if (j > 0 && j < (b - 1)){
-		factor = 2 * k_th * (th_0 - theta[j]);
+		factor = 2 * k_th * (th_0 - theta[j]) / -sin(theta[j]);
 		Fx -= factor * (dxm / r[j - 1] - cos(theta[j]) * dxp / r[j]) / r[j]
 			+ (dxp / r[j] - cos(theta[j]) * dxm / r[j - 1]) / r[j - 1];
+
+		Fy -= factor * (dym / r[j - 1] - cos(theta[j]) * dyp / r[j]) / r[j]
+			+ (dyp / r[j] - cos(theta[j]) * dym / r[j - 1]) / r[j - 1];
+
+		Fz -= factor * (dzm / r[j - 1] - cos(theta[j]) * dzp / r[j]) / r[j]
+			+ (dzp / r[j] - cos(theta[j]) * dzm / r[j - 1]) / r[j - 1];
 	}
+
+	// Next, the phi (torsion) term. A lot more complicated. Each molecule receives a contribution from four different configurations.
+	if (j < (b - 3)){
+		factor = 0.5 * (k_phi1 * sin(phi[j + 1]) + 2 * k_phi2 * sin(2 * phi[j + 1]) + 3 * k_phi3 * sin(3 * phi[j + 1])) / sin(phi[j + 1]);
+		Fx += factor * ((x[j + 3] - x[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dxp / r[j]) / r[j];
+		Fy += factor * ((y[j + 3] - y[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dyp / r[j]) / r[j];
+		Fz += factor * ((z[j + 3] - z[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dzp / r[j]) / r[j];
+	}
+	if (j < (b - 2) && j > 0) {
+		factor = 0.5 * (k_phi1 * sin(phi[j]) + 2 * k_phi2 * sin(2 * phi[j]) + 3 * k_phi3 * sin(3 * phi[j])) / sin(phi[j]);
+		Fx -= factor * (dxpp / r[j + 1] - cos(phi[j]) * dxm / r[j - 1]) / r[j - 1];
+		Fy -= factor * (dypp / r[j + 1] - cos(phi[j]) * dym / r[j - 1]) / r[j - 1];
+		Fz -= factor * (dzpp / r[j + 1] - cos(phi[j]) * dzm / r[j - 1]) / r[j - 1];
+	}
+	if (j < (b - 1) && j > 1) {
+		factor = 0.5 * (k_phi1 * sin(phi[j - 1]) + 2 * k_phi2 * sin(2 * phi[j - 1]) + 3 * k_phi3 * sin(3 * phi[j - 1])) / sin(phi[j - 1]);
+		Fx -= factor * ((x[j - 2] - x[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dxp / r[j]) / r[j];
+		Fy -= factor * ((y[j - 2] - y[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dyp / r[j]) / r[j];
+		Fz -= factor * ((z[j - 2] - z[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dzp / r[j]) / r[j];
+	}
+	if (j > 2) {
+		factor = 0.5 * (k_phi1 * sin(phi[j - 2]) + 2 * k_phi2 * sin(2 * phi[j - 2]) + 3 * k_phi3 * sin(3 * phi[j - 2])) / sin(phi[j - 2]);
+		Fx += factor * ((x[j - 3] - x[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dxm / r[j - 1]) / r[j - 1];
+		Fy += factor * ((y[j - 3] - y[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dym / r[j - 1]) / r[j - 1];
+		Fz += factor * ((z[j - 3] - z[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dzm / r[j - 1]) / r[j - 1];
+	}
+
+	// Finally, each bead feels a van-der walls force from all the other beads from all the other molecules in the verlet list (including its own molecule).
+
 }
 
 
