@@ -7,7 +7,6 @@
 #include <fstream>
 #include <iomanip>
 
-#define PI 3.14159265359
 #define verletStride 100
 #define cutoff 1.2
 #define k_l 1.46E5
@@ -210,19 +209,19 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 
 	// Next, the theta term. A bit more complicated. Each molecule recieve a contribution from the angle behind it, the angle ahead of it, and the angle that has it as the origin.
 	if (j < (b - 2)) {
-		factor = 2 * k_th * (th_0 - PI + theta[j + 1])/r[j];
+		factor = 2 * k_th * (th_0 - theta[j + 1])/r[j];
 		Fx += factor * (dxpp / r[j + 1] + cos(theta[j + 1]) * dxp / r[j]);
 		Fy += factor * (dypp / r[j + 1] + cos(theta[j + 1]) * dyp / r[j]);
 		Fz += factor * (dzpp / r[j + 1] + cos(theta[j + 1]) * dzp / r[j]);
 	}
 	if (j > 1) {
-		factor = 2 * k_th * (th_0 - PI + theta[j - 1] / r[j - 1]);
+		factor = 2 * k_th * (th_0 - theta[j - 1] / r[j - 1]);
 		Fx += factor * ((x[j - 2] - x[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dxm);
 		Fy += factor * ((y[j - 2] - y[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dym);
 		Fz += factor * ((z[j - 2] - z[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dzm);
 	}
 	if (j > 0 && j < (b - 1)){
-		factor = 2 * k_th * (th_0 - PI + theta[j]);
+		factor = 2 * k_th * (th_0 - theta[j]);
 		Fx -= factor * (dxm / r[j - 1] - cos(theta[j]) * dxp / r[j]) / r[j]
 			+ (dxp / r[j] - cos(theta[j]) * dxm / r[j - 1]) / r[j - 1];
 	}
