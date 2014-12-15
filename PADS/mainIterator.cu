@@ -110,12 +110,11 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentro
 
 // This is the main MD method.
 // Technically, one octane (8 threads) per block is very inefficient. I should be using threadblocks of at least 32 threads. However, this would make programming a nightmare, as I'd have to first spend time figuring out how to organize the 4 octanes into memory and constantly making sure that they don't accidentally overlap.
-__global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *verletList, int * verletListEnd, int nMols){
+__global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *verletList, int * verletListEnd){
 	// Copy constants into local memory... The caffeine in my bloodstream doesn't trust whatever's coming in through the functionc call >.>
 	int i = blockIdx.x;
 	int j = threadIdx.x;
 	int b = blockDim.x;
-	int m = nMols;
 
 	// Pushing the max shared memory limit pretty hard here =/ Max shared memory is 49152B I'm using 19584B (although I should be able to cut this by half if things behave well enough) Right now, verletStride doesn't need to be more than 30.
 	extern __shared__ double sharedMem[];
@@ -306,7 +305,7 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
 	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, nMols);
 
-	MDStep<<<nMols,nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd, nMols);
+	MDStep<<<nMols,nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd);
 
 	return EXIT_SUCCESS;
 }
