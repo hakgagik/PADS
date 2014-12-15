@@ -108,7 +108,7 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentro
 
 // This is the main MD method.
 // Technically, one octane (8 threads) per block is very inefficient. I should be using threadblocks of at least 32 threads. However, this would make programming a nightmare, as I'd have to first spend time figuring out how to organize the 4 octanes into memory and constantly making sure that they don't accidentally overlap.
-__global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, double *verletList, double * verletListEnd, int nMols){
+__global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *verletList, int * verletListEnd, int nMols){
 	// Copy constants into local memory... The caffeine in my bloodstream doesn't trust whatever's coming in through the functionc call >.>
 	int i = blockIdx.x;
 	int j = threadIdx.x;
@@ -226,22 +226,7 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
 	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, cutoff, verletStride, nMols);
 
-	int *eVerletList = new int[nMols* verletStride];
-	int *eVerletListEnd = new int[nMols];
-	cudaMemcpy(eVerletList, verletList, nMols* verletStride * sizeof(int), cudaMemcpyDeviceToHost);
-	cudaMemcpy(eVerletListEnd, verletListEnd, sizeof(int)*nMols, cudaMemcpyDeviceToHost);
-
-	std::ofstream verletOut("verlet.dat");
-	std::ofstream verletEndOut("verletEnd.dat");
-
-	for (int i = 0; i < nMols; i++){
-		for (int j = 0; j < 100; j++){
-			verletOut << std::setw(15) << eVerletList[i * 100 + j];
-		}
-
-		verletOut << std::endl;
-		verletEndOut << std::setw(15) << eVerletListEnd[i] << std::endl;
-	}
+	MDStep<<<nMols,nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd, nMols);
 
 	return EXIT_SUCCESS;
 }
