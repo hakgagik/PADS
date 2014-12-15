@@ -30,8 +30,9 @@
 #define cz 1.09983
 
 // Simple integer power function for the LJ potential.
-__inline__ __device__ double pown(double a, int n){
-
+__inline__ __device__ double pow6(double a){
+	a *= a * a;
+	return a * a;
 }
 
 // Each thread block contains nBeads threads. There are nMols thread blocks. Therefore, each molecule is its own thread block.
@@ -201,16 +202,16 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	// First, the spring term. Each bead receives a contribution from the bead ahead of it and from the bead behind it.
 	double factor;
 	if (j > 0) {
+		factor = 2 * k_l * (l_0 - r[j -1]) / r[j -1];
+		Fx += factor * dxm;
+		Fy += factor * dym;
+		Fz += factor * dzm;
+	}
+	if (j < (b - 1)) {
 		factor = 2 * k_l * (l_0 - r[j]) / r[j];
 		Fx += factor * dxp;
 		Fy += factor * dyp;
 		Fz += factor * dzp;
-	}
-	if (j < (b - 1)) {
-		factor = 2 * k_l * (l_0 - r[j - 1]) / r[j - 1];
-		Fx += factor * dxm;
-		Fy += factor * dym;
-		Fz += factor * dzm;
 	}
 
 	// Next, the theta term. A bit more complicated. Each molecule recieve a contribution from the angle behind it, the angle ahead of it, and the angle that has it as the origin.
