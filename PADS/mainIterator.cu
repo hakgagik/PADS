@@ -208,19 +208,19 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	// First, the spring term. Each bead receives a contribution from the bead ahead of it and from the bead behind it.
 	double factor;
 	if (j > 0) {
-		factor = 2 * k_l * (l_0 - r[j -1]) / r[j -1];
+		factor = 2 * k_l * (r[j -1] - l_0) / r[j -1];
 		Fx += factor * dxm;
 		Fy += factor * dym;
 		Fz += factor * dzm;
 	}
 	if (j < (b - 1)) {
-		factor = 2 * k_l * (l_0 - r[j]) / r[j];
+		factor = 2 * k_l * (r[j] - l_0) / r[j];
 		Fx += factor * dxp;
 		Fy += factor * dyp;
 		Fz += factor * dzp;
 	}
 
-	// Next, the theta term. A bit more complicated. Each molecule recieve a contribution from the angle behind it, the angle ahead of it, and the angle that has it as the origin.
+	// Next, the theta term. A bit more complicated. Each molecule recieves a contribution from the angle behind it, the angle ahead of it, and the angle that has it as the origin.
 	if (j < (b - 2)) {
 		factor = 2 * k_th * (th_0 - PI + theta[j + 1]) / r[j] / sin(theta[j + 1]);
 		Fx += factor * (dxpp / r[j + 1] + cos(theta[j + 1]) * dxp / r[j]);
@@ -228,47 +228,53 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 		Fz += factor * (dzpp / r[j + 1] + cos(theta[j + 1]) * dzp / r[j]);
 	}
 	if (j > 1) {
-		factor = 2 * k_th * (th_0 - PI + theta[j - 1] / r[j - 1]) / sin(theta[j - 1]);
-		Fx += factor * ((x[j - 2] - x[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dxm / r[j - 1]);
-		Fy += factor * ((y[j - 2] - y[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dym / r[j - 1]);
-		Fz += factor * ((z[j - 2] - z[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dzm / r[j - 1]);
+		//factor = 2 * k_th * (th_0 - PI + theta[j - 1] / r[j - 1]) / sin(theta[j - 1]);
+		//Fx += factor * ((x[j - 2] - x[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dxm / r[j - 1]);
+		//Fy += factor * ((y[j - 2] - y[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dym / r[j - 1]);
+		//Fz += factor * ((z[j - 2] - z[j - 1]) / r[j - 2] + cos(theta[j - 1]) * dzm / r[j - 1]);
 	}
 	if (j > 0 && j < (b - 1)){
-		factor = 2 * k_th * (th_0 - PI + theta[j]) / sin(theta[j]);
-		Fx -= factor * (dxm / r[j - 1] - cos(theta[j]) * dxp / r[j]) / r[j]
-			+ (dxp / r[j] - cos(theta[j]) * dxm / r[j - 1]) / r[j - 1];
+		//factor = 2 * k_th * (th_0 - PI + theta[j]) / sin(theta[j]);
+		//Fx -= factor * (dxm / r[j - 1] - cos(theta[j]) * dxp / r[j]) / r[j]
+		//	+ (dxp / r[j] - cos(theta[j]) * dxm / r[j - 1]) / r[j - 1];
+
+		//Fy -= factor * (dym / r[j - 1] - cos(theta[j]) * dyp / r[j]) / r[j]
+		//	+ (dyp / r[j] - cos(theta[j]) * dym / r[j - 1]) / r[j - 1];
+
+		//Fz -= factor * (dzm / r[j - 1] - cos(theta[j]) * dzp / r[j]) / r[j]
+		//	+ (dzp / r[j] - cos(theta[j]) * dzm / r[j - 1]) / r[j - 1];
 	}
 
 	// Next phi. WHAT. THE. FUCK. Is WRONG with GIT?!
-	if (j < (b - 3)){
-		factor = 0.5 * (k_phi1 * sin(phi[j + 1]) + 2 * k_phi2 * sin(2 * phi[j + 1]) + 3 * k_phi3 * sin(3 * phi[j + 1])) / sin(phi[j + 1]);
-		Fx += factor * ((x[j + 3] - x[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dxp / r[j]) / r[j];
-		Fy += factor * ((y[j + 3] - y[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dyp / r[j]) / r[j];
-		Fz += factor * ((z[j + 3] - z[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dzp / r[j]) / r[j];
-	}
-	if (j < (b - 2) && j > 0) {
-		factor = 0.5 * (k_phi1 * sin(phi[j]) + 2 * k_phi2 * sin(2 * phi[j]) + 3 * k_phi3 * sin(3 * phi[j])) / sin(phi[j]);
-		Fx -= factor * (dxpp / r[j + 1] - cos(phi[j]) * dxm / r[j - 1]) / r[j - 1];
-		Fy -= factor * (dypp / r[j + 1] - cos(phi[j]) * dym / r[j - 1]) / r[j - 1];
-		Fz -= factor * (dzpp / r[j + 1] - cos(phi[j]) * dzm / r[j - 1]) / r[j - 1];
-	}
-	if (j < (b - 1) && j > 1) {
-		factor = 0.5 * (k_phi1 * sin(phi[j - 1]) + 2 * k_phi2 * sin(2 * phi[j - 1]) + 3 * k_phi3 * sin(3 * phi[j - 1])) / sin(phi[j - 1]);
-		Fx -= factor * ((x[j - 2] - x[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dxp / r[j]) / r[j];
-		Fy -= factor * ((y[j - 2] - y[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dyp / r[j]) / r[j];
-		Fz -= factor * ((z[j - 2] - z[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dzp / r[j]) / r[j];
-	}
-	if (j > 2) {
-		factor = 0.5 * (k_phi1 * sin(phi[j - 2]) + 2 * k_phi2 * sin(2 * phi[j - 2]) + 3 * k_phi3 * sin(3 * phi[j - 2])) / sin(phi[j - 2]);
-		Fx += factor * ((x[j - 3] - x[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dxm / r[j - 1]) / r[j - 1];
-		Fy += factor * ((y[j - 3] - y[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dym / r[j - 1]) / r[j - 1];
-		Fz += factor * ((z[j - 3] - z[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dzm / r[j - 1]) / r[j - 1];
-	}
+	//if (j < (b - 3)){
+	//	factor = 0.5 * (k_phi1 * sin(phi[j + 1]) + 2 * k_phi2 * sin(2 * phi[j + 1]) + 3 * k_phi3 * sin(3 * phi[j + 1])) / sin(phi[j + 1]);
+	//	Fx += factor * ((x[j + 3] - x[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dxp / r[j]) / r[j];
+	//	Fy += factor * ((y[j + 3] - y[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dyp / r[j]) / r[j];
+	//	Fz += factor * ((z[j + 3] - z[j + 2]) / r[j + 2] + cos(phi[j + 1]) * dzp / r[j]) / r[j];
+	//}
+	//if (j < (b - 2) && j > 0) {
+	//	factor = 0.5 * (k_phi1 * sin(phi[j]) + 2 * k_phi2 * sin(2 * phi[j]) + 3 * k_phi3 * sin(3 * phi[j])) / sin(phi[j]);
+	//	Fx -= factor * (dxpp / r[j + 1] - cos(phi[j]) * dxm / r[j - 1]) / r[j - 1];
+	//	Fy -= factor * (dypp / r[j + 1] - cos(phi[j]) * dym / r[j - 1]) / r[j - 1];
+	//	Fz -= factor * (dzpp / r[j + 1] - cos(phi[j]) * dzm / r[j - 1]) / r[j - 1];
+	//}
+	//if (j < (b - 1) && j > 1) {
+	//	factor = 0.5 * (k_phi1 * sin(phi[j - 1]) + 2 * k_phi2 * sin(2 * phi[j - 1]) + 3 * k_phi3 * sin(3 * phi[j - 1])) / sin(phi[j - 1]);
+	//	Fx -= factor * ((x[j - 2] - x[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dxp / r[j]) / r[j];
+	//	Fy -= factor * ((y[j - 2] - y[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dyp / r[j]) / r[j];
+	//	Fz -= factor * ((z[j - 2] - z[j - 1]) / r[j - 2] - cos(phi[j - 1]) * dzp / r[j]) / r[j];
+	//}
+	//if (j > 2) {
+	//	factor = 0.5 * (k_phi1 * sin(phi[j - 2]) + 2 * k_phi2 * sin(2 * phi[j - 2]) + 3 * k_phi3 * sin(3 * phi[j - 2])) / sin(phi[j - 2]);
+	//	Fx += factor * ((x[j - 3] - x[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dxm / r[j - 1]) / r[j - 1];
+	//	Fy += factor * ((y[j - 3] - y[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dym / r[j - 1]) / r[j - 1];
+	//	Fz += factor * ((z[j - 3] - z[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dzm / r[j - 1]) / r[j - 1];
+	//}
 	
 	// Finally, Van der Walls
 	double dx, dy, dz, rsq, sdrcb;
 
-	// Now do this for everything in Verlet list
+	// Do this for everything in Verlet list
 	for (int v = 0; v < vCount * b; v++){
 		dx = verletX[v] - x[j];
 		dy = verletY[v] - y[j];
@@ -276,7 +282,7 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 		rsq = dx * dx + dy * dy + dz * dz;
 		sdrcb = sigma * sigma / rsq;
 		sdrcb *= sdrcb * sdrcb;
-		factor = 4 * eps * sdrcb * (12 * sdrcb - 6) / rsq;
+		factor = 24 * eps * sdrcb * (1 - 2 * sdrcb) / rsq;
 		Fx += factor * dx;
 		Fy += factor * dy;
 		Fz += factor * dz;
@@ -382,26 +388,27 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	cudaMemcpy(daccy, eaccy, sizeof(double) * nBeads * nMols, cudaMemcpyHostToDevice);
 	cudaMemcpy(daccz, eaccz, sizeof(double) * nBeads * nMols, cudaMemcpyHostToDevice);
 
-	for (int i = 0; i < 100; i++){
+	for (int i = 0; i < 1000; i++){
 		MDStep<<<nMols, nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd, dvx, dvy, dvz, daccx, daccy, daccz);
+		std::cout << i << std::endl;
 		cudaDeviceSynchronize();
-		cudaMemcpy(x, dx, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
-		cudaMemcpy(y, dy, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
-		cudaMemcpy(z, dz, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
-		cudaMemcpy(evx, dvx, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
-		cudaMemcpy(evy, dvy, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
-		cudaMemcpy(evz, dvz, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
-		cudaMemcpy(eaccx, daccx, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
-		cudaMemcpy(eaccy, daccy, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
-		cudaMemcpy(eaccz, daccz, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+		//cudaMemcpy(x, dx, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
+		//cudaMemcpy(y, dy, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
+		//cudaMemcpy(z, dz, nMols * nBeads * sizeof(double), cudaMemcpyDeviceToHost);
+		//cudaMemcpy(evx, dvx, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+		//cudaMemcpy(evy, dvy, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+		//cudaMemcpy(evz, dvz, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+		//cudaMemcpy(eaccx, daccx, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+		//cudaMemcpy(eaccy, daccy, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
+		//cudaMemcpy(eaccz, daccz, sizeof(double)* nBeads * nMols, cudaMemcpyDeviceToHost);
 
-		std::ofstream out("finalOut.dat");
-		for (int i = 0; i < nBeads*nMols; i++){
-			out << std::setw(15) << x[i]
-				<< std::setw(15) << y[i]
-				<< std::setw(15) << z[i]
-				<< std::endl;
-		}
+		//std::ofstream out("finalOut.dat");
+		//for (int i = 0; i < nBeads*nMols; i++){
+		//	out << std::setw(15) << x[i]
+		//		<< std::setw(15) << y[i]
+		//		<< std::setw(15) << z[i]
+		//		<< std::endl;
+		//}
 
 	}
 
