@@ -108,7 +108,7 @@ __global__ void getVerletList(int*verletList, int *verletListEnd, double*xCentro
 
 // This is the main MD method.
 // Technically, one octane (8 threads) per block is very inefficient. I should be using threadblocks of at least 32 threads. However, this would make programming a nightmare, as I'd have to first spend time figuring out how to organize the 4 octanes into memory and constantly making sure that they don't accidentally overlap.
-__global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *verletList, int * verletListEnd, int nMols){
+__global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *verletList, int * verletListEnd, double *dr, int nMols){
 	// Copy constants into local memory... The caffeine in my bloodstream doesn't trust whatever's coming in through the functionc call >.>
 	int i = blockIdx.x;
 	int j = threadIdx.x;
@@ -135,9 +135,9 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	// Next, copy positions of other molecules in the verletList into shared memory. Each thread copies data corresponding to itself.
 	int vCount = 0;
 	for (int idx = verletStride * i; idx <= verletListEnd[i]; idx++){
-		verletX[vCount * b + j] = xGlobal[b * idx + j];
-		verletY[vCount * b + j] = yGlobal[b * idx + j];
-		verletZ[vCount * b + j] = zGlobal[b * idx + j];
+		verletX[vCount * b + j] = xGlobal[verletList[idx] * b + j];
+		verletY[vCount * b + j] = yGlobal[verletList[idx] * b + j];
+		verletZ[vCount * b + j] = zGlobal[verletList[idx] * b + j];
 		vCount++;
 	}
 
@@ -190,7 +190,9 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	phi[j] = acos((dxm * dxpp + dym * dypp + dzm * dzpp) / r[j - 1] / r[j + 1]);
 
 	// Now, each molecule calculates a force on itself from ALL the terms. ALL OF THEM.
-	double Fx = 0, Fy = 0, Fz = 0;
+	//double Fx = 0, Fy = 0, Fz = 0;
+	dr[i*b + j] = r[j];
+	
 }
 
 
@@ -226,7 +228,13 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 
 	getVerletList<<<nMols,1>>>(verletList, verletListEnd, dcentroidsx, dcentroidsy, dcentroidsz, nMols);
 
-	MDStep<<<nMols,nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd, nMols);
+	double *dr, *er;
+	er = new double[nBeads*nMols];
+	cudaMalloc(&dr, nBeads*nMols*sizeof(double));
+
+	MDStep<<<nMols,nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd, dr, nMols);
+
+	cudaMemcpy(er, dr, nBeads*nMols*sizeof(double), cudaMemcpyDeviceToHost);
 
 	return EXIT_SUCCESS;
 }
