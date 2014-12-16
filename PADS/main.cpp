@@ -1,3 +1,11 @@
+// AEP 4380 Final Project
+// Gagik Hakobyan
+//
+// Conducting molecular dynamics simulations on octanes on a GPU.
+//
+// Run on a Core i7 and a GTX 580 GPU with Visual Studio 2013 and nvcc in Windows 8.1
+//
+// 12-15-2014
 #include "supercell.h"	
 #include "mainIterator.cuh"
 #include <iostream>

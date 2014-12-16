@@ -1,3 +1,4 @@
+// A set of classes for parsing, storing, and rearranging molecules for computation.
 #include "supercell.h"
 
 using namespace std;
