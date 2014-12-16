@@ -6,7 +6,7 @@ using namespace std;
 
 
 void main() {
-	supercell superCell(8, "test.mol2");
+	supercell superCell(8, "test2.mol2");
 	int nMols = superCell.nMols;
 	int nBeads = superCell.mols[0].nBeads;
 	double *x, *y, *z;

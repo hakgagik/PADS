@@ -32,7 +32,7 @@
 #define cz 1.09983
 #define mCH2 14.0266
 #define mCH3 15.0345
-#define dt 0.00001 // Energy is in units of Kj, mass is in units of g and distance is in units of nm, so natural time units are ps
+#define dt 0.001 // Energy is in units of Kj, mass is in units of g and distance is in units of nm, so natural time units are ps
 
 // Simple integer power function for the LJ potential.
 
@@ -269,7 +269,7 @@ __global__ void MDStep(double *xGlobal, double *yGlobal, double *zGlobal, int *v
 	//	Fx += factor * ((x[j - 3] - x[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dxm / r[j - 1]) / r[j - 1];
 	//	Fy += factor * ((y[j - 3] - y[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dym / r[j - 1]) / r[j - 1];
 	//	Fz += factor * ((z[j - 3] - z[j - 2]) / r[j - 3] + cos(phi[j - 2]) * dzm / r[j - 1]) / r[j - 1];
-	}
+	//}
 	
 	// Finally, Van der Walls
 	double dx, dy, dz, rsq, sdrcb;
@@ -388,7 +388,7 @@ int cuMainLoop(double *x, double *y, double *z, int nMols, int nBeads){
 	cudaMemcpy(daccy, eaccy, sizeof(double) * nBeads * nMols, cudaMemcpyHostToDevice);
 	cudaMemcpy(daccz, eaccz, sizeof(double) * nBeads * nMols, cudaMemcpyHostToDevice);
 
-	for (int i = 0; i < 10000; i++){
+	for (int i = 0; i < 2000; i++){
 		MDStep<<<nMols, nBeads, (3 * verletStride * nBeads + 6 * nBeads) * sizeof(double)>>>(dx, dy, dz, verletList, verletListEnd, dvx, dvy, dvz, daccx, daccy, daccz);
 		std::cout << i << std::endl;
 		cudaDeviceSynchronize();
